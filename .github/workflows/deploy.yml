@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Configure SSH
         env:
-          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SSH_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
