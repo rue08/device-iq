@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "204964811831",
+    "project_id": "device-iq-87c3c",
+    "storage_bucket": "device-iq-87c3c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:204964811831:android:0872965d005d0a0a6b9bb2",
+        "android_client_info": {
+          "package_name": "com.deviceiq.device_iq"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "204964811831-m16plqb1kq7l77admm15d2slcf1ckgje.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtX2D6198uX1AJEVGhckLAntl7tMYZXik"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "204964811831-m16plqb1kq7l77admm15d2slcf1ckgje.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -54,7 +54,7 @@ model Device {
 
 // One telemetry reading from a device. Fields are deliberately nullable and
 // platform-specific — see PROJECT.md §1/§2 for which fields are trustworthy
-// on which platform (e.g. cycleCount/fullChargeCapacityMwh are real on
+// on which platform (e.g. cycleCount/fullChargeCapacityMah are real on
 // macOS/Windows but not Android; healthEnum only applies to Android).
 model Snapshot {
   id         String   @id @default(cuid())
@@ -71,10 +71,15 @@ model Snapshot {
   healthEnum       Int?
   temperatureTenthsC Int?
 
-  // Battery - macOS/Windows-specific (real degradation data, see PROJECT.md §1)
+  // Battery - macOS/Windows-specific (real degradation data, see PROJECT.md §1).
+  // Stored in mAh as each platform's native OS API reports it (IOKit on
+  // macOS, WMI/powercfg on Windows) - no unit conversion applied, even
+  // though Windows' powercfg/WMI readings are natively in mWh, not mAh (see
+  // PROJECT.md §1's Windows section: 35701 mWh, cross-validated). Treat
+  // cross-platform comparisons of these two columns with that in mind.
   cycleCount             Int?
-  designCapacityMwh      Int?
-  fullChargeCapacityMwh  Int?
+  designCapacityMah      Int?
+  fullChargeCapacityMah  Int?
 
   // Storage
   storageTotalBytes BigInt?

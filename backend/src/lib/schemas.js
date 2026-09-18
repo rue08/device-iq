@@ -27,8 +27,8 @@ const createSnapshotSchema = z.object({
   temperatureTenthsC: z.number().int().nullable().optional(),
 
   cycleCount: z.number().int().nullable().optional(),
-  designCapacityMwh: z.number().int().nullable().optional(),
-  fullChargeCapacityMwh: z.number().int().nullable().optional(),
+  designCapacityMah: z.number().int().nullable().optional(),
+  fullChargeCapacityMah: z.number().int().nullable().optional(),
 
   storageTotalBytes: z.number().nonnegative().nullable().optional(),
   storageFreeBytes: z.number().nonnegative().nullable().optional(),

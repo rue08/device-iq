@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.deviceiq.agent</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Replace with the actual path from `swift build -c release`'s
+             output (see README.md) before installing. -->
+        <string>/REPLACE/WITH/PATH/TO/DeviceIQAgent</string>
+    </array>
+
+    <!-- Runs in the user's own session (LaunchAgent, not LaunchDaemon) - no
+         root/admin needed, per PROJECT.md Phase 1b. -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/com.deviceiq.agent.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/com.deviceiq.agent.err.log</string>
+</dict>
+</plist>
