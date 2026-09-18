@@ -7,6 +7,8 @@ module.exports = defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // MIGRATE_DATABASE_URL lets migrations use a different sslmode than the
+    // app (Prisma's schema engine doesn't support verify-full, pg does).
+    url: process.env["MIGRATE_DATABASE_URL"] || process.env["DATABASE_URL"],
   },
 });

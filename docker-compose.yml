@@ -1,0 +1,22 @@
+# Runs on the EC2 instance. Postgres is RDS, not a container - see
+# DATABASE_URL in backend/.env on the server.
+services:
+  backend:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      PORT: 4000
+    volumes:
+      # The Firebase key stays on the host, never baked into the image.
+      - ./backend/firebase-service-account.json:/app/firebase-service-account.json:ro
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    restart: unless-stopped

@@ -1,0 +1,48 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "nginx/**"
+      - "docker-compose.yml"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+# One deploy at a time; a second push queues instead of cancelling a
+# half-finished `docker compose up`.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+      - name: Pull and rebuild on the server
+        run: |
+          ssh -i ~/.ssh/id_deploy "ubuntu@$EC2_HOST" \
+            'cd ~/device-iq && git pull --ff-only && docker compose up -d --build && docker image prune -f'
+
+      # No tests exist, so this is the only check that a release actually
+      # came up: migrations ran and the API answers through nginx.
+      - name: Smoke test /health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "http://$EC2_HOST/health"; then exit 0; fi
+            sleep 5
+          done
+          echo "health check failed after 150s" >&2
+          exit 1
