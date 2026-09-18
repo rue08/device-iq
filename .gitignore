@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Environment variables / secrets - never commit these
+.env
+.env.local
+firebase-service-account.json
+
+# macOS
+.DS_Store
+
+# Platform-specific ignores (Flutter app, macOS/Windows agents) get added
+# here once those directories actually exist - not guessed ahead of time.
+PROJECT.md

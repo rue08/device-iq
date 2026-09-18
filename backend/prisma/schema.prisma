@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  // This IS the Firebase UID, not a separately-generated internal id -
+  // Firebase owns identity entirely, this backend never mints its own user
+  // ids or stores credentials. Created lazily by the auth middleware on
+  // first sight of a new Firebase user (find-or-create), since Firebase
+  // handles signup/login client-side - there's no backend register step.
+  id        String   @id
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  devices  Device[]
+  pairings PendingPairing[]
+}
+
+enum DeviceType {
+  phone
+  laptop
+}
+
+enum Platform {
+  android
+  ios
+  macos
+  windows
+}
+
+model Device {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  deviceType   DeviceType
+  platform     Platform
+  manufacturer String?
+  model        String?
+  // user-facing name shown in the device switcher, e.g. "MacBook Air"
+  label        String?
+  createdAt    DateTime   @default(now())
+
+  snapshots Snapshot[]
+
+  @@index([userId])
+}
+
+// One telemetry reading from a device. Fields are deliberately nullable and
+// platform-specific — see PROJECT.md §1/§2 for which fields are trustworthy
+// on which platform (e.g. cycleCount/fullChargeCapacityMwh are real on
+// macOS/Windows but not Android; healthEnum only applies to Android).
+model Snapshot {
+  id         String   @id @default(cuid())
+  deviceId   String
+  device     Device   @relation(fields: [deviceId], references: [id])
+  capturedAt DateTime @default(now())
+
+  // Battery - common
+  batteryLevelPercent Int?
+  isCharging          Boolean?
+  voltageMv           Int?
+
+  // Battery - Android-specific
+  healthEnum       Int?
+  temperatureTenthsC Int?
+
+  // Battery - macOS/Windows-specific (real degradation data, see PROJECT.md §1)
+  cycleCount             Int?
+  designCapacityMwh      Int?
+  fullChargeCapacityMwh  Int?
+
+  // Storage
+  storageTotalBytes BigInt?
+  storageFreeBytes  BigInt?
+
+  // Memory
+  ramTotalBytes BigInt?
+  ramFreeBytes  BigInt?
+
+  // Thermal
+  thermalStatus String?
+
+  // Full original payload, for anything not yet modeled above
+  raw Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([deviceId, capturedAt])
+}
+
+// Short-lived QR-pairing handshake, per PROJECT.md §2b.
+// Lifecycle: laptop agent creates one (unauthenticated) -> phone scans QR and
+// claims it (authenticated) -> laptop agent polls status until claimed and
+// picks up its deviceToken.
+model PendingPairing {
+  token       String    @id
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  claimedAt   DateTime?
+  deviceId    String?
+  deviceToken String?
+}
