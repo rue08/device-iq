@@ -7,7 +7,7 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:204964811831:android:0872965d005d0a0a6b9bb2",
+        "mobilesdk_app_id": "1:204964811831:android:8b20ae5f6b1298a96b9bb2",
         "android_client_info": {
           "package_name": "com.deviceiq.device_iq"
         }
@@ -20,7 +20,7 @@
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyBtX2D6198uX1AJEVGhckLAntl7tMYZXik"
+          "current_key": "AIzaSyCbipTh7vTq-zOm8zqq8mxaUJ_jiteDVDg"
         }
       ],
       "services": {
