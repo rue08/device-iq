@@ -30,7 +30,7 @@ final class PairingWindowController: NSWindowController {
         stack.spacing = 16
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let title = NSTextField(labelWithString: "Scan with the Device Health Copilot app")
+        let title = NSTextField(labelWithString: "Scan with the DeviceIQ app")
         title.font = .systemFont(ofSize: 13, weight: .medium)
 
         imageView.imageScaling = .scaleProportionallyUpOrDown

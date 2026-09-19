@@ -1,5 +1,5 @@
 <#
-Device Health Copilot - Windows background agent (PROJECT.md Phase 1b).
+DeviceIQ - Windows background agent (PROJECT.md Phase 1b).
 Tray-icon app: pairs with your account (text-code pairing, not QR - see
 windows-agent/README.md for why), then pushes a telemetry snapshot on a
 timer using the same WMI/powercfg reads validated in
@@ -288,7 +288,7 @@ function Show-PairingWindow {
 
 $notifyIcon = New-Object System.Windows.Forms.NotifyIcon
 $notifyIcon.Icon = [System.Drawing.SystemIcons]::Application
-$notifyIcon.Text = "Device Health Copilot"
+$notifyIcon.Text = "DeviceIQAgent"
 $notifyIcon.Visible = $true
 
 $contextMenu = New-Object System.Windows.Forms.ContextMenuStrip
@@ -359,4 +359,16 @@ $syncTimer.Interval = $SnapshotIntervalMs
 $syncTimer.Add_Tick({ Invoke-Sync })
 $syncTimer.Start()
 
-[System.Windows.Forms.Application]::Run()
+# Ctrl+C would stop this script's pipeline while the tray icon's message loop
+# keeps running, after which every menu click throws PipelineStoppedException.
+# Read it as plain input instead and quit from the tray menu's Exit. (Throws
+# when there is no console, e.g. when started hidden - nothing to guard then.)
+try { [Console]::TreatControlCAsInput = $true } catch { }
+
+try {
+    [System.Windows.Forms.Application]::Run()
+} finally {
+    # Never leave an unclickable ghost icon behind.
+    $notifyIcon.Visible = $false
+    $notifyIcon.Dispose()
+}

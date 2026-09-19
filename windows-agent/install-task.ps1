@@ -14,7 +14,7 @@ $Trigger = New-ScheduledTaskTrigger -AtLogOn
 $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 
 Register-ScheduledTask -TaskName "DeviceIQAgent" -Action $Action -Trigger $Trigger -Settings $Settings `
-    -Description "Device Health Copilot background agent" -Force
+    -Description "DeviceIQ background agent" -Force
 
 Write-Host "Installed. It will start at next logon, or run it now with:"
 Write-Host "  Start-ScheduledTask -TaskName DeviceIQAgent"

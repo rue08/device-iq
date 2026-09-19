@@ -10,7 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "laptopcomputer", accessibilityDescription: "Device Health Copilot")
+        statusItem.button?.image = NSImage(systemSymbolName: "laptopcomputer", accessibilityDescription: "DeviceIQ")
 
         let menu = NSMenu()
 
