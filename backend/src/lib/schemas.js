@@ -45,7 +45,25 @@ const updateDeviceSchema = z.object({
   label: z.string().trim().min(1).max(60),
 });
 
+// Query strings for the /admin list routes. Values arrive as strings, hence
+// coerce. limit is capped so a stray request can't pull the whole table.
+const adminPageSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+const adminDevicesQuerySchema = adminPageSchema.extend({
+  userId: z.string().min(1).optional(),
+});
+
+const adminSnapshotsQuerySchema = adminPageSchema.extend({
+  deviceId: z.string().min(1).optional(),
+});
+
 module.exports = {
+  adminPageSchema,
+  adminDevicesQuerySchema,
+  adminSnapshotsQuerySchema,
   deviceTypeSchema,
   platformSchema,
   createDeviceSchema,

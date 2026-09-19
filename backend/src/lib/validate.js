@@ -12,4 +12,17 @@ function validateBody(schema) {
   };
 }
 
-module.exports = { validateBody };
+// Same idea for query strings. Express 5 makes req.query a read-only getter,
+// so the parsed result goes on res.locals.query instead of replacing it.
+function validateQuery(schema) {
+  return (req, res, next) => {
+    const result = schema.safeParse(req.query);
+    if (!result.success) {
+      return res.status(400).json({ error: "invalid query parameters", issues: result.error.issues });
+    }
+    res.locals.query = result.data;
+    next();
+  };
+}
+
+module.exports = { validateBody, validateQuery };

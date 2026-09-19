@@ -28,6 +28,8 @@ const spec = swaggerJsdoc({
         "4. Laptop signs in to Firebase with that custom token and uploads snapshots with the resulting device-scoped ID token.",
         "",
         "Pending pairings expire after 10 minutes.",
+        "",
+        "**Admin routes.** The `Admin` group is a read-only, cross-user view of the database for the developer. It uses a separate `X-API-Key` header (the server's `ADMIN_API_KEY`) instead of a Firebase token. If the key isn't configured on the server, these routes return `503`.",
       ].join("\n"),
     },
     // Applies to every operation unless a route overrides it with its own
@@ -40,6 +42,10 @@ const spec = swaggerJsdoc({
       { name: "Snapshots", description: "Telemetry readings uploaded by a device." },
       { name: "Pairing", description: "QR handshake that links a laptop agent to a phone's account." },
       { name: "Account", description: "Account-level operations." },
+      {
+        name: "Admin",
+        description: "Read-only, cross-user database view for the developer. Authenticated with `X-API-Key`, not a Firebase token.",
+      },
     ],
     components: {
       securitySchemes: {
@@ -49,6 +55,26 @@ const spec = swaggerJsdoc({
           bearerFormat: "Firebase ID token",
           description:
             "Firebase ID token. Either the phone's own sign-in (account token) or a laptop agent's session from `signInWithCustomToken` (device-scoped token).",
+        },
+        ApiKeyAuth: {
+          type: "apiKey",
+          in: "header",
+          name: "X-API-Key",
+          description: "The server's `ADMIN_API_KEY`. Only the `/admin` routes accept it.",
+        },
+      },
+      parameters: {
+        Limit: {
+          in: "query",
+          name: "limit",
+          schema: { type: "integer", minimum: 1, maximum: 200, default: 50 },
+          description: "Page size",
+        },
+        Offset: {
+          in: "query",
+          name: "offset",
+          schema: { type: "integer", minimum: 0, default: 0 },
+          description: "Rows to skip",
         },
       },
       // Shared error responses, referenced from the route blocks so each
@@ -95,6 +121,24 @@ const spec = swaggerJsdoc({
                   value: { error: "token is scoped to a different device" },
                 },
               },
+            },
+          },
+        },
+        AdminUnauthorized: {
+          description: "`X-API-Key` header missing or wrong",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+              example: { error: "missing or invalid API key" },
+            },
+          },
+        },
+        AdminDisabled: {
+          description: "`ADMIN_API_KEY` isn't set (or is shorter than 32 characters) on the server, so the admin API is off",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+              example: { error: "admin API is not configured" },
             },
           },
         },
@@ -208,6 +252,27 @@ const spec = swaggerJsdoc({
             thermalStatus: { type: "string", nullable: true, example: "nominal" },
             raw: { type: "object", additionalProperties: true },
           },
+        },
+        AdminUser: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Firebase UID", example: "kR3vN8xQmPZ2aTd9LwYb6HcJ0eU1" },
+            email: { type: "string", example: "someone@example.com" },
+            createdAt: { type: "string", format: "date-time" },
+            deviceCount: { type: "integer", example: 2 },
+          },
+        },
+        AdminDevice: {
+          description: "A `Device` plus how many snapshots it has stored.",
+          allOf: [
+            { $ref: "#/components/schemas/Device" },
+            {
+              type: "object",
+              properties: {
+                snapshotCount: { type: "integer", example: 1342 },
+              },
+            },
+          ],
         },
         Error: {
           type: "object",

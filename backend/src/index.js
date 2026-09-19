@@ -13,6 +13,7 @@ BigInt.prototype.toJSON = function () {
 const devicesRouter = require("./routes/devices");
 const pairingRouter = require("./routes/pairing");
 const accountRouter = require("./routes/account");
+const adminRouter = require("./routes/admin");
 const healthRouter = require("./routes/health");
 const docsRouter = require("./routes/docs");
 
@@ -32,6 +33,7 @@ app.get("/qrcode.js", (req, res) => res.sendFile(path.join(publicDir, "qrcode.js
 app.use("/devices", devicesRouter);
 app.use("/devices", pairingRouter);
 app.use("/account", accountRouter);
+app.use("/admin", adminRouter);
 
 // Catch-all error handler - so a thrown/rejected error in any route
 // returns JSON instead of Express's default HTML error page.
