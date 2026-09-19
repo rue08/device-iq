@@ -67,6 +67,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let formatter = DateFormatter()
             formatter.timeStyle = .short
             statusMenuItem.title = "Status: synced at \(formatter.string(from: Date()))"
+        } catch ApiError.requestFailed(let status, _) where status == 403 || status == 404 {
+            // The backend no longer recognises this device (unlinked from the
+            // phone app), so drop the saved credentials and offer re-pairing
+            // instead of failing every sync from now on.
+            await SessionManager.shared.unpair()
+            await refreshMenuState()
+            statusMenuItem.title = "Status: unlinked - link this device again"
         } catch {
             statusMenuItem.title = "Sync error: \(error.localizedDescription)"
         }
