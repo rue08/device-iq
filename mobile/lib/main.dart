@@ -21,7 +21,7 @@ class DeviceIqApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Device Health Copilot',
+      title: 'DeviceIQ',
       theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
       home: StreamBuilder(
         stream: AuthService.instance.authStateChanges,

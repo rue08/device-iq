@@ -38,7 +38,7 @@ class _SignInScreenState extends State<SignInScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Device Health Copilot', style: TextStyle(fontSize: 24)),
+              const Text('DeviceIQ', style: TextStyle(fontSize: 24)),
               const SizedBox(height: 32),
               if (_busy)
                 const CircularProgressIndicator()

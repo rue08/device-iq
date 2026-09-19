@@ -4,6 +4,14 @@ import 'api_client.dart';
 import 'auth_service.dart';
 import 'link_laptop_screen.dart';
 import 'telemetry_service.dart';
+import 'time_format.dart';
+
+// One account device plus its most recent snapshot (null if none yet).
+class _DeviceEntry {
+  _DeviceEntry(this.device, this.snapshot);
+  final Map<String, dynamic> device;
+  final Map<String, dynamic>? snapshot;
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,42 +21,53 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String? _deviceId;
-  Map<String, dynamic>? _latestSnapshot;
+  String? _phoneDeviceId;
+  List<_DeviceEntry> _entries = [];
   bool _busy = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _bootstrap();
+    _load();
   }
 
-  // Finds this account's phone device, self-registering one if this is the
-  // first launch - see backend/src/routes/devices.js's self-registration
-  // endpoint. No local persistence needed: the backend is the source of
-  // truth for "do I have a device yet".
-  Future<void> _bootstrap() async {
+  // Loads every device on the account with its latest snapshot, self-
+  // registering this phone first if this is the first launch - see
+  // backend/src/routes/devices.js. No local persistence needed: the backend
+  // is the source of truth.
+  Future<void> _load() async {
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final devices = await ApiClient.instance.listDevices();
-      Map<String, dynamic>? phone;
-      for (final device in devices) {
-        if (device['deviceType'] == 'phone') {
-          phone = device;
-          break;
-        }
+      var devices = await ApiClient.instance.listDevices();
+      if (!devices.any((d) => d['deviceType'] == 'phone')) {
+        await ApiClient.instance.registerDevice(
+          deviceType: 'phone',
+          platform: 'android',
+          label: 'Android phone',
+        );
+        devices = await ApiClient.instance.listDevices();
       }
-      phone ??= await ApiClient.instance.registerDevice(
-        deviceType: 'phone',
-        platform: 'android',
-        label: 'Android phone',
-      );
-      _deviceId = phone['id'] as String;
-      await _refreshSnapshot();
+      final entries = await Future.wait(devices.map((device) async {
+        final snapshot = await ApiClient.instance.latestSnapshot(device['id'] as String);
+        return _DeviceEntry(device, snapshot);
+      }));
+      // Phone first, then laptops in creation order.
+      entries.sort((a, b) {
+        final aPhone = a.device['deviceType'] == 'phone' ? 0 : 1;
+        final bPhone = b.device['deviceType'] == 'phone' ? 0 : 1;
+        return aPhone.compareTo(bPhone);
+      });
+      setState(() {
+        _entries = entries;
+        _phoneDeviceId = entries
+            .where((e) => e.device['deviceType'] == 'phone')
+            .map((e) => e.device['id'] as String)
+            .firstOrNull;
+      });
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -56,19 +75,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _refreshSnapshot() async {
-    final snapshot = await ApiClient.instance.latestSnapshot(_deviceId!);
-    setState(() => _latestSnapshot = snapshot);
-  }
-
   Future<void> _takeSnapshot() async {
+    final deviceId = _phoneDeviceId;
+    if (deviceId == null) return;
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
       final telemetry = await TelemetryService.instance.collect();
-      await ApiClient.instance.uploadSnapshot(_deviceId!, {
+      await ApiClient.instance.uploadSnapshot(deviceId, {
         'batteryLevelPercent': telemetry['batteryLevelPercent'],
         'isCharging': telemetry['isCharging'],
         'voltageMv': telemetry['voltageMv'],
@@ -81,23 +97,33 @@ class _HomeScreenState extends State<HomeScreen> {
         'thermalStatus': telemetry['thermalStatus'],
         'raw': telemetry['raw'],
       });
-      await _refreshSnapshot();
+      await _load();
     } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      setState(() => _busy = false);
+      setState(() {
+        _error = e.toString();
+        _busy = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final user = AuthService.instance.currentUser;
-    final snapshot = _latestSnapshot;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Device Health Copilot'),
+        title: const Text('DeviceIQ'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            tooltip: 'Link a laptop',
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LinkLaptopScreen()),
+              );
+              _load();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => AuthService.instance.signOut(),
@@ -105,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => _deviceId == null ? _bootstrap() : _refreshSnapshot(),
+        onRefresh: _load,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -116,51 +142,70 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
             ],
             if (_busy) const LinearProgressIndicator(),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: snapshot == null
-                    ? const Text('No snapshot yet - tap "Take snapshot now" below.')
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Last snapshot: ${snapshot['capturedAt']}'),
-                          const SizedBox(height: 8),
-                          _snapshotRow('Battery', '${snapshot['batteryLevelPercent']}%'
-                              '${snapshot['isCharging'] == true ? ' (charging)' : ''}'),
-                          _snapshotRow('Voltage', '${snapshot['voltageMv']} mV'),
-                          _snapshotRow('Temperature', _tenthsToC(snapshot['temperatureTenthsC'])),
-                          _snapshotRow('Health enum', '${snapshot['healthEnum']}'),
-                          _snapshotRow('Storage free', _bytesToGb(snapshot['storageFreeBytes'])),
-                          _snapshotRow('Storage total', _bytesToGb(snapshot['storageTotalBytes'])),
-                          _snapshotRow('RAM free', _bytesToGb(snapshot['ramFreeBytes'])),
-                          _snapshotRow('RAM total', _bytesToGb(snapshot['ramTotalBytes'])),
-                          _snapshotRow('Thermal status', '${snapshot['thermalStatus']}'),
-                        ],
-                      ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: (_busy || _deviceId == null) ? null : _takeSnapshot,
-              child: const Text('Take snapshot now'),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Link a laptop'),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LinkLaptopScreen()),
-              ),
-            ),
+            for (final entry in _entries) ...[
+              _deviceCard(entry),
+              const SizedBox(height: 12),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _snapshotRow(String label, String value) => Padding(
+  Widget _deviceCard(_DeviceEntry entry) {
+    final device = entry.device;
+    final snapshot = entry.snapshot;
+    final isPhone = device['deviceType'] == 'phone';
+    final title = (device['label'] ?? device['model'] ?? (isPhone ? 'Phone' : 'Laptop')) as String;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(isPhone ? Icons.smartphone : Icons.laptop),
+                const SizedBox(width: 8),
+                Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
+                Text(_platformName(device['platform'])),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (snapshot == null)
+              const Text('No snapshot yet - it will appear after the first sync.')
+            else ...[
+              Text('Updated ${formatIst(snapshot['capturedAt'])}',
+                  style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 8),
+              _row('Battery', '${snapshot['batteryLevelPercent'] ?? 'unknown'}%'
+                  '${snapshot['isCharging'] == true ? ' (charging)' : ''}'),
+              if (snapshot['voltageMv'] != null) _row('Voltage', '${snapshot['voltageMv']} mV'),
+              if (snapshot['temperatureTenthsC'] != null)
+                _row('Temperature', '${(snapshot['temperatureTenthsC'] as num) / 10}°C'),
+              if (snapshot['healthEnum'] != null) _row('Health enum', '${snapshot['healthEnum']}'),
+              if (snapshot['cycleCount'] != null) _row('Cycle count', '${snapshot['cycleCount']}'),
+              if (_capacityPercent(snapshot) != null)
+                _row('Battery capacity', '${_capacityPercent(snapshot)}% of design'),
+              _row('Storage free', '${_gb(snapshot['storageFreeBytes'])} of ${_gb(snapshot['storageTotalBytes'])}'),
+              _row('RAM free', '${_gb(snapshot['ramFreeBytes'])} of ${_gb(snapshot['ramTotalBytes'])}'),
+              if (snapshot['thermalStatus'] != null) _row('Thermal', '${snapshot['thermalStatus']}'),
+            ],
+            if (isPhone) ...[
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: (_busy || _phoneDeviceId == null) ? null : _takeSnapshot,
+                child: const Text('Take snapshot now'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _row(String label, String value) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -168,12 +213,22 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
 
-  String _tenthsToC(dynamic tenths) {
-    if (tenths == null) return 'unknown';
-    return '${(tenths as num) / 10}°C';
+  String _platformName(dynamic platform) => switch (platform) {
+        'android' => 'Android',
+        'ios' => 'iOS',
+        'macos' => 'macOS',
+        'windows' => 'Windows',
+        _ => '$platform',
+      };
+
+  int? _capacityPercent(Map<String, dynamic> snapshot) {
+    final full = snapshot['fullChargeCapacityMah'];
+    final design = snapshot['designCapacityMah'];
+    if (full is! num || design is! num || design == 0) return null;
+    return (full / design * 100).round();
   }
 
-  String _bytesToGb(dynamic bytes) {
+  String _gb(dynamic bytes) {
     if (bytes == null) return 'unknown';
     final value = bytes is String ? int.parse(bytes) : (bytes as num).toInt();
     return '${(value / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
