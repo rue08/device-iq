@@ -106,6 +106,33 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _unlink(_DeviceEntry entry) async {
+    final name = _deviceTitle(entry.device);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Unlink $name?'),
+        content: const Text('This removes the device and all of its snapshots from your account.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Unlink')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ApiClient.instance.deleteDevice(entry.device['id'] as String);
+      await _load();
+    } catch (e) {
+      setState(() => _error = e.toString());
+    }
+  }
+
+  String _deviceTitle(Map<String, dynamic> device) {
+    final isPhone = device['deviceType'] == 'phone';
+    return (device['label'] ?? device['model'] ?? (isPhone ? 'Phone' : 'Laptop')) as String;
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = AuthService.instance.currentUser;
@@ -156,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final device = entry.device;
     final snapshot = entry.snapshot;
     final isPhone = device['deviceType'] == 'phone';
-    final title = (device['label'] ?? device['model'] ?? (isPhone ? 'Phone' : 'Laptop')) as String;
+    final details = [device['manufacturer'], device['model']].whereType<String>().join(' ');
 
     return Card(
       child: Padding(
@@ -168,10 +195,18 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Icon(isPhone ? Icons.smartphone : Icons.laptop),
                 const SizedBox(width: 8),
-                Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
+                Expanded(child: Text(_deviceTitle(device), style: Theme.of(context).textTheme.titleMedium)),
                 Text(_platformName(device['platform'])),
+                if (!isPhone)
+                  IconButton(
+                    icon: const Icon(Icons.link_off),
+                    tooltip: 'Unlink',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _unlink(entry),
+                  ),
               ],
             ),
+            if (details.isNotEmpty) Text(details, style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 8),
             if (snapshot == null)
               const Text('No snapshot yet - it will appear after the first sync.')
@@ -179,18 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Text('Updated ${formatIst(snapshot['capturedAt'])}',
                   style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 8),
-              _row('Battery', '${snapshot['batteryLevelPercent'] ?? 'unknown'}%'
-                  '${snapshot['isCharging'] == true ? ' (charging)' : ''}'),
-              if (snapshot['voltageMv'] != null) _row('Voltage', '${snapshot['voltageMv']} mV'),
-              if (snapshot['temperatureTenthsC'] != null)
-                _row('Temperature', '${(snapshot['temperatureTenthsC'] as num) / 10}°C'),
-              if (snapshot['healthEnum'] != null) _row('Health enum', '${snapshot['healthEnum']}'),
-              if (snapshot['cycleCount'] != null) _row('Cycle count', '${snapshot['cycleCount']}'),
-              if (_capacityPercent(snapshot) != null)
-                _row('Battery capacity', '${_capacityPercent(snapshot)}% of design'),
-              _row('Storage free', '${_gb(snapshot['storageFreeBytes'])} of ${_gb(snapshot['storageTotalBytes'])}'),
-              _row('RAM free', '${_gb(snapshot['ramFreeBytes'])} of ${_gb(snapshot['ramTotalBytes'])}'),
-              if (snapshot['thermalStatus'] != null) _row('Thermal', '${snapshot['thermalStatus']}'),
+              ..._snapshotRows(snapshot),
             ],
             if (isPhone) ...[
               const SizedBox(height: 12),
@@ -203,6 +227,57 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  // Every snapshot field the backend stores, skipping ones the platform
+  // doesn't report (null). `raw` entries are appended at the end.
+  List<Widget> _snapshotRows(Map<String, dynamic> s) {
+    String? text(dynamic v) => v == null ? null : '$v';
+    final rows = <String, String?>{
+      'Battery': s['batteryLevelPercent'] == null
+          ? null
+          : '${s['batteryLevelPercent']}%${s['isCharging'] == true ? ' (charging)' : ''}',
+      'Charging': s['isCharging'] == null ? null : (s['isCharging'] == true ? 'Yes' : 'No'),
+      'Voltage': s['voltageMv'] == null ? null : '${s['voltageMv']} mV',
+      'Temperature': s['temperatureTenthsC'] == null ? null : '${(s['temperatureTenthsC'] as num) / 10}°C',
+      'Battery status': s['healthEnum'] == null ? null : _healthName(s['healthEnum']),
+      'Battery health': _capacityPercent(s) == null ? null : '${_capacityPercent(s)}%',
+      'Design capacity': s['designCapacityMah'] == null ? null : '${s['designCapacityMah']} mAh',
+      'Full-charge capacity': s['fullChargeCapacityMah'] == null ? null : '${s['fullChargeCapacityMah']} mAh',
+      'Cycle count': text(s['cycleCount']),
+      'Storage free': s['storageFreeBytes'] == null ? null : _gb(s['storageFreeBytes']),
+      'Storage total': s['storageTotalBytes'] == null ? null : _gb(s['storageTotalBytes']),
+      'RAM free': s['ramFreeBytes'] == null ? null : _gb(s['ramFreeBytes']),
+      'RAM total': s['ramTotalBytes'] == null ? null : _gb(s['ramTotalBytes']),
+      'Thermal': text(s['thermalStatus']),
+    };
+    final raw = s['raw'];
+    if (raw is Map) {
+      for (final entry in raw.entries) {
+        if (entry.value != null) rows[_prettyKey('${entry.key}')] = '${entry.value}';
+      }
+    }
+    return [
+      for (final entry in rows.entries)
+        if (entry.value != null) _row(entry.key, entry.value!),
+    ];
+  }
+
+  // Android's BatteryManager.EXTRA_HEALTH values.
+  String _healthName(dynamic value) => switch (value) {
+        2 => 'Good',
+        3 => 'Overheat',
+        4 => 'Dead',
+        5 => 'Over voltage',
+        6 => 'Failure',
+        7 => 'Cold',
+        _ => 'Unknown ($value)',
+      };
+
+  // camelCase -> "Camel case" for raw keys we don't have a label for.
+  String _prettyKey(String key) {
+    final spaced = key.replaceAllMapped(RegExp(r'([a-z])([A-Z])'), (m) => '${m[1]} ${m[2]!.toLowerCase()}');
+    return spaced[0].toUpperCase() + spaced.substring(1);
   }
 
   Widget _row(String label, String value) => Padding(

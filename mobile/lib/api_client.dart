@@ -95,6 +95,21 @@ class ApiClient {
     return _decodeOrThrow(response) as Map<String, dynamic>;
   }
 
+  Future<void> deleteDevice(String deviceId) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/devices/$deviceId'),
+      headers: await _authHeaders(),
+    );
+    // 204 No Content - nothing to decode, so bypass _decodeOrThrow.
+    if (response.statusCode != 204) {
+      String message = response.body;
+      try {
+        message = (jsonDecode(response.body) as Map)['error']?.toString() ?? message;
+      } catch (_) {}
+      throw ApiException(response.statusCode, message);
+    }
+  }
+
   Future<Map<String, dynamic>> uploadSnapshot(String deviceId, Map<String, dynamic> snapshot) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/devices/$deviceId/snapshots'),
