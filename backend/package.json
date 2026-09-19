@@ -22,10 +22,12 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@scalar/express-api-reference": "^0.10.19",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firebase-admin": "^14.4.0",
+    "swagger-jsdoc": "^6.3.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {

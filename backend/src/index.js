@@ -13,12 +13,15 @@ BigInt.prototype.toJSON = function () {
 const devicesRouter = require("./routes/devices");
 const pairingRouter = require("./routes/pairing");
 const accountRouter = require("./routes/account");
+const healthRouter = require("./routes/health");
+const docsRouter = require("./routes/docs");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get("/health", (req, res) => res.json({ ok: true }));
+app.use(healthRouter);
+app.use(docsRouter);
 
 // Static pages: /pair renders the pairing QR for laptop agents that can't
 // draw one themselves (the Windows agent). See src/public/pair.html.

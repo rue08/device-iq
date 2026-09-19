@@ -10,6 +10,29 @@ const router = express.Router();
 
 const PAIRING_TTL_MS = 10 * 60 * 1000; // 10 minutes, per PROJECT.md 2b
 
+/**
+ * @openapi
+ * /devices/pending-pairing:
+ *   post:
+ *     tags: [Pairing]
+ *     summary: Start pairing (laptop)
+ *     security: []
+ *     description: Step 1 of the QR flow. Called by the laptop agent, which has no identity yet, so no token is needed. Returns a random single-use `token` for the agent to render as a QR code; it expires after 10 minutes. No request body.
+ *     responses:
+ *       201:
+ *         description: Pairing created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token: { type: string, description: 48 hex characters }
+ *                 expiresAt: { type: string, format: date-time }
+ *             example:
+ *               token: 9f2c4e7a1b8d3f6052ac91e4d7b03c68f1a5e2d49b7c0a83
+ *               expiresAt: '2026-09-19T10:42:00.000Z'
+ *       500: { $ref: '#/components/responses/InternalError' }
+ */
 // Called by the laptop agent, unauthenticated - it has no identity yet.
 // Returns a short-lived token for the agent to render as a QR code.
 router.post("/pending-pairing", async (req, res) => {
@@ -23,6 +46,50 @@ router.post("/pending-pairing", async (req, res) => {
   res.status(201).json({ token: pairing.token, expiresAt: pairing.expiresAt });
 });
 
+/**
+ * @openapi
+ * /devices/pending-pairing/{token}/status:
+ *   get:
+ *     tags: [Pairing]
+ *     summary: Poll pairing status (laptop)
+ *     security: []
+ *     description: 'Step 3 of the QR flow. The laptop agent polls this until `claimed` is `true`. The `deviceToken` (a Firebase custom token) is returned **once** and then cleared, so any later poll gets `deviceToken: null`. No bearer token needed; the pairing `token` itself is the secret.'
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema: { type: string }
+ *         description: The token returned by `POST /devices/pending-pairing`
+ *         example: 9f2c4e7a1b8d3f6052ac91e4d7b03c68f1a5e2d49b7c0a83
+ *     responses:
+ *       200:
+ *         description: Current state of the pairing
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 claimed: { type: boolean }
+ *                 deviceId: { type: string }
+ *                 deviceToken: { type: string, nullable: true, description: 'Firebase custom token, non-null on the first poll after the claim only' }
+ *             examples:
+ *               waiting:
+ *                 summary: Not claimed yet
+ *                 value: { claimed: false }
+ *               firstDelivery:
+ *                 summary: First poll after the claim
+ *                 value: { claimed: true, deviceId: cmfx0a1b20000qzrm5g8h1a2b, deviceToken: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9... }
+ *               alreadyDelivered:
+ *                 summary: Any later poll
+ *                 value: { claimed: true, deviceId: cmfx0a1b20000qzrm5g8h1a2b, deviceToken: null }
+ *       404:
+ *         description: Unknown or expired pairing
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: pairing not found or expired }
+ *       500: { $ref: '#/components/responses/InternalError' }
+ */
 // Polled repeatedly by the laptop agent (simple interval polling, per our
 // discussion) until claimed:true shows up. deviceToken is returned once,
 // then cleared from the DB - single-use delivery.
@@ -53,6 +120,57 @@ router.get("/pending-pairing/:token/status", async (req, res) => {
   res.json({ claimed: true, deviceId: pairing.deviceId, deviceToken });
 });
 
+/**
+ * @openapi
+ * /devices/claim:
+ *   post:
+ *     tags: [Pairing]
+ *     summary: Claim a pairing (phone)
+ *     description: Step 2 of the QR flow. The phone calls this after scanning the laptop's QR, with its own account token. Creates the laptop's Device row under the phone's account and mints a device-scoped custom token, which the laptop collects from the status endpoint. The body is a device description plus the scanned `token`.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             allOf:
+ *               - $ref: '#/components/schemas/DeviceInput'
+ *               - type: object
+ *                 required: [token]
+ *                 properties:
+ *                   token: { type: string, minLength: 1, description: The pairing token from the laptop's QR code }
+ *           example:
+ *             token: 9f2c4e7a1b8d3f6052ac91e4d7b03c68f1a5e2d49b7c0a83
+ *             deviceType: laptop
+ *             platform: macos
+ *             manufacturer: Apple
+ *             model: MacBook Air
+ *             label: Work laptop
+ *     responses:
+ *       201:
+ *         description: Device created and pairing marked claimed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 deviceId: { type: string }
+ *             example: { deviceId: cmfx0a1b20000qzrm5g8h1a2b }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404:
+ *         description: Unknown or expired pairing
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: pairing not found or expired }
+ *       409:
+ *         description: Someone already claimed this pairing
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: pairing already claimed }
+ *       500: { $ref: '#/components/responses/InternalError' }
+ */
 // Called by the phone after scanning the laptop's QR - authenticated with
 // the phone's own Firebase ID token. Creates the Device row under the
 // phone's uid, then mints a device-scoped custom token for the laptop to

@@ -5,6 +5,25 @@ const { requireAuth } = require("../lib/authMiddleware");
 
 const router = express.Router();
 
+/**
+ * @openapi
+ * /account:
+ *   delete:
+ *     tags: [Account]
+ *     summary: Delete account
+ *     description: Permanently deletes every device and snapshot, any pending pairings, the user record, and finally the Firebase user. **Irreversible.** Account tokens only - a laptop's device-scoped token gets 403. Laptop agents then get 404s on their next upload and unpair themselves.
+ *     responses:
+ *       204:
+ *         description: Account deleted, no body
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403:
+ *         description: A device-scoped token was used
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: device tokens cannot delete the account }
+ *       500: { $ref: '#/components/responses/InternalError' }
+ */
 // Permanently deletes the caller's account: every device and snapshot, any
 // pending pairings, the User row, and finally the Firebase user itself.
 // Account-level tokens only - a laptop's device-scoped token must not be able
