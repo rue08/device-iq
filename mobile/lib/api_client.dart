@@ -95,11 +95,22 @@ class ApiClient {
     return _decodeOrThrow(response) as Map<String, dynamic>;
   }
 
-  Future<void> deleteDevice(String deviceId) async {
-    final response = await http.delete(
+  Future<Map<String, dynamic>> renameDevice(String deviceId, String label) async {
+    final response = await http.patch(
       Uri.parse('$_baseUrl/devices/$deviceId'),
       headers: await _authHeaders(),
+      body: jsonEncode({'label': label}),
     );
+    return _decodeOrThrow(response) as Map<String, dynamic>;
+  }
+
+  Future<void> deleteDevice(String deviceId) => _delete('$_baseUrl/devices/$deviceId');
+
+  // Permanently deletes this account and all its data on the backend.
+  Future<void> deleteAccount() => _delete('$_baseUrl/account');
+
+  Future<void> _delete(String url) async {
+    final response = await http.delete(Uri.parse(url), headers: await _authHeaders());
     // 204 No Content - nothing to decode, so bypass _decodeOrThrow.
     if (response.statusCode != 204) {
       String message = response.body;

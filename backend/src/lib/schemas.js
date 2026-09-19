@@ -41,10 +41,15 @@ const createSnapshotSchema = z.object({
   raw: z.record(z.string(), z.unknown()).optional(),
 });
 
+const updateDeviceSchema = z.object({
+  label: z.string().trim().min(1).max(60),
+});
+
 module.exports = {
   deviceTypeSchema,
   platformSchema,
   createDeviceSchema,
   claimPairingSchema,
   createSnapshotSchema,
+  updateDeviceSchema,
 };

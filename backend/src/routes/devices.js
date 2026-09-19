@@ -2,7 +2,7 @@ const express = require("express");
 const { prisma } = require("../lib/prisma");
 const { requireAuth, requireDeviceOwnership } = require("../lib/authMiddleware");
 const { validateBody } = require("../lib/validate");
-const { createDeviceSchema, createSnapshotSchema } = require("../lib/schemas");
+const { createDeviceSchema, createSnapshotSchema, updateDeviceSchema } = require("../lib/schemas");
 
 const router = express.Router();
 
@@ -47,6 +47,37 @@ router.get("/:deviceId/snapshots/latest", requireAuth, requireDeviceOwnership, a
     return res.status(404).json({ error: "no snapshots yet for this device" });
   }
   res.json(snapshot);
+});
+
+// Rename a device. Account-level tokens only, same as unlinking.
+router.patch(
+  "/:deviceId",
+  requireAuth,
+  requireDeviceOwnership,
+  validateBody(updateDeviceSchema),
+  async (req, res) => {
+    if (req.auth.deviceId) {
+      return res.status(403).json({ error: "device tokens cannot rename devices" });
+    }
+    const device = await prisma.device.update({
+      where: { id: req.device.id },
+      data: { label: req.body.label },
+    });
+    res.json(device);
+  }
+);
+
+// Unlink a device: removes it and its snapshots. Account-level tokens only -
+// a laptop's device-scoped token must not be able to delete itself or others.
+router.delete("/:deviceId", requireAuth, requireDeviceOwnership, async (req, res) => {
+  if (req.auth.deviceId) {
+    return res.status(403).json({ error: "device tokens cannot unlink devices" });
+  }
+  await prisma.$transaction([
+    prisma.snapshot.deleteMany({ where: { deviceId: req.device.id } }),
+    prisma.device.delete({ where: { id: req.device.id } }),
+  ]);
+  res.status(204).end();
 });
 
 module.exports = router;

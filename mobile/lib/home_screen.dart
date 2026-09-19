@@ -106,20 +106,81 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _unlink(_DeviceEntry entry) async {
-    final name = _deviceTitle(entry.device);
-    final confirmed = await showDialog<bool>(
+  Future<bool> _confirm({
+    required String title,
+    required String message,
+    required String action,
+    bool destructive = false,
+  }) async {
+    final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Unlink $name?'),
-        content: const Text('This removes the device and all of its snapshots from your account.'),
+        title: Text(title),
+        content: Text(message),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Unlink')),
+          FilledButton(
+            style: destructive
+                ? FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error)
+                : null,
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(action),
+          ),
         ],
       ),
     );
-    if (confirmed != true) return;
+    return result == true;
+  }
+
+  Future<void> _confirmSignOut() async {
+    final ok = await _confirm(
+      title: 'Log out?',
+      message: 'You can sign back in with Google any time. Your devices and data are kept.',
+      action: 'Log out',
+    );
+    if (ok) await AuthService.instance.signOut();
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final ok = await _confirm(
+      title: 'Delete your account?',
+      message: 'This permanently deletes your account, every linked device and all snapshots. '
+          'It cannot be undone.',
+      action: 'Delete account',
+      destructive: true,
+    );
+    if (!ok) return;
+    try {
+      await ApiClient.instance.deleteAccount();
+      await AuthService.instance.signOut();
+    } catch (e) {
+      setState(() => _error = e.toString());
+    }
+  }
+
+  Future<void> _rename(Map<String, dynamic> device) async {
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (_) => _RenameDialog(initialName: _deviceTitle(device)),
+    );
+    if (newName == null) return;
+    try {
+      await ApiClient.instance.renameDevice(device['id'] as String, newName);
+      await _load();
+    } catch (e) {
+      setState(() => _error = e.toString());
+    }
+  }
+
+  Future<void> _unlink(_DeviceEntry entry) async {
+    final name = _deviceTitle(entry.device);
+    final confirmed = await _confirm(
+      title: 'Unlink $name?',
+      message: 'This removes the device and all of its snapshots from your account.',
+      action: 'Unlink',
+      destructive: true,
+    );
+    if (!confirmed) return;
     try {
       await ApiClient.instance.deleteDevice(entry.device['id'] as String);
       await _load();
@@ -153,7 +214,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () => AuthService.instance.signOut(),
+            tooltip: 'Log out',
+            onPressed: _confirmSignOut,
+          ),
+          IconButton(
+            icon: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
+            tooltip: 'Delete account',
+            onPressed: _confirmDeleteAccount,
           ),
         ],
       ),
@@ -195,7 +262,14 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Icon(isPhone ? Icons.smartphone : Icons.laptop),
                 const SizedBox(width: 8),
-                Expanded(child: Text(_deviceTitle(device), style: Theme.of(context).textTheme.titleMedium)),
+                Flexible(child: Text(_deviceTitle(device), style: Theme.of(context).textTheme.titleMedium)),
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 18),
+                  tooltip: 'Rename',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _rename(device),
+                ),
+                const Spacer(),
                 Text(_platformName(device['platform'])),
                 if (!isPhone)
                   IconButton(
@@ -307,5 +381,53 @@ class _HomeScreenState extends State<HomeScreen> {
     if (bytes == null) return 'unknown';
     final value = bytes is String ? int.parse(bytes) : (bytes as num).toInt();
     return '${(value / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+}
+
+// Edit-name dialog. Save is faded until the text differs from the current
+// name (and isn't blank); Cancel or the back button discards the edit.
+class _RenameDialog extends StatefulWidget {
+  const _RenameDialog({required this.initialName});
+  final String initialName;
+
+  @override
+  State<_RenameDialog> createState() => _RenameDialogState();
+}
+
+class _RenameDialogState extends State<_RenameDialog> {
+  late final TextEditingController _controller = TextEditingController(text: widget.initialName);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) {
+        final name = _controller.text.trim();
+        final changed = name.isNotEmpty && name != widget.initialName;
+        return AlertDialog(
+          title: const Text('Rename device'),
+          content: TextField(
+            controller: _controller,
+            autofocus: true,
+            maxLength: 60,
+            decoration: const InputDecoration(border: OutlineInputBorder()),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            // Null onPressed renders the button faded/disabled.
+            FilledButton(
+              onPressed: changed ? () => Navigator.pop(context, name) : null,
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

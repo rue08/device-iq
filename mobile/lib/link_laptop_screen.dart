@@ -104,14 +104,6 @@ class _ConfirmSheet extends StatefulWidget {
 
 class _ConfirmSheetState extends State<_ConfirmSheet> {
   String _platform = 'macos';
-  final TextEditingController _label = TextEditingController();
-
-  @override
-  void dispose() {
-    _label.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -131,20 +123,15 @@ class _ConfirmSheetState extends State<_ConfirmSheet> {
             onSelectionChanged: (s) => setState(() => _platform = s.first),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _label,
-            decoration: const InputDecoration(labelText: 'Name (optional)', border: OutlineInputBorder()),
-          ),
-          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
               onPressed: () {
-                final name = _label.text.trim();
+                // Renamed later from the pencil icon on the device's card.
                 Navigator.of(context).pop(_LaptopChoice(
                   _platform,
                   _platform == 'macos' ? 'Apple' : null,
-                  name.isEmpty ? (_platform == 'macos' ? 'Mac laptop' : 'Windows laptop') : name,
+                  _platform == 'macos' ? 'Mac laptop' : 'Windows laptop',
                 ));
               },
               child: const Text('Link this laptop'),

@@ -11,6 +11,7 @@ BigInt.prototype.toJSON = function () {
 
 const devicesRouter = require("./routes/devices");
 const pairingRouter = require("./routes/pairing");
+const accountRouter = require("./routes/account");
 
 const app = express();
 app.use(cors());
@@ -20,6 +21,7 @@ app.get("/health", (req, res) => res.json({ ok: true }));
 
 app.use("/devices", devicesRouter);
 app.use("/devices", pairingRouter);
+app.use("/account", accountRouter);
 
 // Catch-all error handler - so a thrown/rejected error in any route
 // returns JSON instead of Express's default HTML error page.
