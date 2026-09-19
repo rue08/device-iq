@@ -118,6 +118,10 @@ function Send-Snapshot([hashtable]$Payload) {
 # --- Telemetry (ported from agents-windows-poc/telemetry-probe.ps1) --------
 
 function Try-Value([scriptblock]$Block) {
+    # Get-CimInstance reports failures as non-terminating errors, which a
+    # try/catch ignores and which print red text to the console. Stop makes
+    # them catchable, so a WMI class the OEM doesn't implement just yields $null.
+    $ErrorActionPreference = "Stop"
     try { return & $Block } catch { return $null }
 }
 
