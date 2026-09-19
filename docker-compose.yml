@@ -1,5 +1,6 @@
 # Runs on the EC2 instance. Postgres is RDS, not a container - see
-# DATABASE_URL in backend/.env on the server.
+# DATABASE_URL in backend/.env on the server. nginx and certbot run on the
+# host, not in Compose (see nginx/device-iq.conf).
 services:
   backend:
     build: ./backend
@@ -9,14 +10,7 @@ services:
     volumes:
       # The Firebase key stays on the host, never baked into the image.
       - ./backend/firebase-service-account.json:/app/firebase-service-account.json:ro
-    restart: unless-stopped
-
-  nginx:
-    image: nginx:1.27-alpine
     ports:
-      - "80:80"
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on:
-      - backend
+      # Loopback only: host nginx (TLS via certbot) is the sole way in.
+      - "127.0.0.1:4000:4000"
     restart: unless-stopped

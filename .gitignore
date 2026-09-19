@@ -79,3 +79,5 @@ key.properties
 *.ipr
 *.iws
 .idea/
+# Host nginx config reference for the EC2 box; kept local, not deployed
+nginx/

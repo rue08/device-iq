@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths:
       - "backend/**"
-      - "nginx/**"
       - "docker-compose.yml"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
@@ -37,11 +36,12 @@ jobs:
             'cd ~/device-iq && git pull --ff-only && docker compose up -d --build && docker image prune -f'
 
       # No tests exist, so this is the only check that a release actually
-      # came up: migrations ran and the API answers through nginx.
+      # came up: migrations ran and the API answers. Checked on the VM's
+      # loopback so it doesn't depend on DNS or TLS.
       - name: Smoke test /health
         run: |
           for i in $(seq 1 30); do
-            if curl -fsS "http://$EC2_HOST/health"; then exit 0; fi
+            if ssh -i ~/.ssh/id_deploy "ubuntu@$EC2_HOST" 'curl -fsS http://127.0.0.1:4000/health'; then exit 0; fi
             sleep 5
           done
           echo "health check failed after 150s" >&2
