@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import 'auth_service.dart';
 
@@ -22,6 +23,12 @@ class _SignInScreenState extends State<SignInScreen> {
       await AuthService.instance.signInWithGoogle();
       // On success, the app's authStateChanges stream (see main.dart)
       // navigates to HomeScreen - nothing else to do here.
+    } on GoogleSignInException catch (e) {
+      // Dismissing the account picker isn't an error - stay on this screen
+      // silently so the user can just tap the button again.
+      if (e.code != GoogleSignInExceptionCode.canceled) {
+        setState(() => _error = e.toString());
+      }
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
