@@ -67,15 +67,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let formatter = DateFormatter()
             formatter.timeStyle = .short
             statusMenuItem.title = "Status: synced at \(formatter.string(from: Date()))"
-        } catch ApiError.requestFailed(let status, _) where status == 403 || status == 404 {
-            // The backend no longer recognises this device (unlinked from the
-            // phone app), so drop the saved credentials and offer re-pairing
-            // instead of failing every sync from now on.
-            await SessionManager.shared.unpair()
-            await refreshMenuState()
-            statusMenuItem.title = "Status: unlinked - link this device again"
         } catch {
-            statusMenuItem.title = "Sync error: \(error.localizedDescription)"
+            if Self.indicatesUnlink(error) {
+                // The backend (or Firebase, after an account deletion) no
+                // longer recognises this device: drop the saved credentials
+                // and offer re-pairing instead of failing every sync.
+                await SessionManager.shared.unpair()
+                await refreshMenuState()
+                statusMenuItem.title = "Status: unlinked - link this device again"
+            } else {
+                statusMenuItem.title = "Sync error: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    // 403/404 from our backend: device unlinked. Firebase refresh errors
+    // naming a missing/disabled user or dead refresh token: account deleted.
+    private static func indicatesUnlink(_ error: Error) -> Bool {
+        switch error {
+        case ApiError.requestFailed(let status, _):
+            return status == 403 || status == 404
+        case AuthError.requestFailed(let message):
+            return ["USER_NOT_FOUND", "USER_DISABLED", "TOKEN_EXPIRED", "INVALID_REFRESH_TOKEN"]
+                .contains { message.contains($0) }
+        default:
+            return false
         }
     }
 
