@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- The pairing token lives after the # in the URL, which browsers never
+       send to the server, and no referrer is sent from this page either. -->
+  <meta name="referrer" content="no-referrer">
+  <title>Link this laptop - DeviceIQ</title>
+  <style>
+    :root { --bg: #f4f9f7; --fg: #15221f; --muted: #5b6b67; --card: #ffffff; --accent: #00695c; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0f1a18; --fg: #e6efec; --muted: #9db0ab; --card: #16231f; --accent: #4db6a4; }
+    }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; box-sizing: border-box;
+           background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+    main { max-width: 360px; text-align: center; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    p { color: var(--muted); margin: 8px 0; }
+    #qr { background: #fff; padding: 12px; border-radius: 12px; display: inline-block; margin: 16px 0 4px; }
+    #qr svg { display: block; width: 264px; height: 264px; }
+    #error { color: #c62828; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Link this laptop</h1>
+    <div id="content"></div>
+  </main>
+  <script src="/qrcode.js"></script>
+  <script>
+    (function () {
+      var content = document.getElementById('content');
+      var token = decodeURIComponent(location.hash.slice(1)).trim();
+      // Drop the token from the address bar and history.
+      history.replaceState(null, '', location.pathname);
+
+      if (!/^[A-Za-z0-9_-]{16,128}$/.test(token)) {
+        content.innerHTML = '<p id="error">No pairing code found. Open this page from the DeviceIQ agent\'s "Show QR code" button.</p>';
+        return;
+      }
+
+      var qr = qrcode(0, 'M');
+      qr.addData(token);
+      qr.make();
+      content.innerHTML =
+        '<p>Open DeviceIQ on your phone, tap the scan icon, and point the camera at this code.</p>' +
+        '<div id="qr">' + qr.createSvgTag(6, 0) + '</div>' +
+        '<p>The code expires 10 minutes after the agent created it. If it stops working, close this tab and click "Link This Device" in the agent again.</p>';
+    })();
+  </script>
+</body>
+</html>

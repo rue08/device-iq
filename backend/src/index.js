@@ -1,4 +1,5 @@
 require("dotenv/config");
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 
@@ -18,6 +19,12 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/health", (req, res) => res.json({ ok: true }));
+
+// Static pages: /pair renders the pairing QR for laptop agents that can't
+// draw one themselves (the Windows agent). See src/public/pair.html.
+const publicDir = path.join(__dirname, "public");
+app.get("/pair", (req, res) => res.sendFile(path.join(publicDir, "pair.html")));
+app.get("/qrcode.js", (req, res) => res.sendFile(path.join(publicDir, "qrcode.js")));
 
 app.use("/devices", devicesRouter);
 app.use("/devices", pairingRouter);

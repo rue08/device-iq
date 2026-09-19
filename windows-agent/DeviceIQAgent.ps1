@@ -15,12 +15,10 @@ Add-Type -AssemblyName System.Drawing
 
 # --- Config ---------------------------------------------------------------
 
-# The backend runs on a different physical machine during development (the
-# Mac) - localhost here would mean this Windows machine, not the Mac. Set
-# this to the dev machine's LAN IP (find it on the Mac with
-# `ipconfig getifaddr en0`), and make sure backend/src/index.js's port
-# (4000) is reachable through the Mac's firewall from this machine.
-$BackendBaseUrl = "http://REPLACE_WITH_MAC_LAN_IP:4000"
+# Deployed backend (EC2 + RDS behind nginx/certbot). For local dev against a
+# backend on another machine, use that machine's LAN IP, e.g.
+# "http://192.168.1.10:4000" - localhost here would mean this Windows machine.
+$BackendBaseUrl = "https://deviceiq.duckdns.org"
 
 # Public Firebase Web API Key - not a secret, see backend/.env.example.
 $FirebaseWebApiKey = "AIzaSyCCoLdGsaHcJ5ZFaojjVQ2DtpiFtsRT-m8"
@@ -178,11 +176,17 @@ function Get-Telemetry {
     $result.cycleCount = $cycleCount
 
     # Schema column is named *Mah, but powercfg/WMI report these natively in
-    # mWh (cross-validated in PROJECT.md §1: 35701 mWh, 51310 mWh) - convert
-    # using voltage rather than mislabel the unit. See schema.prisma comment.
-    if ($voltageMv -and $voltageMv -gt 0) {
-        if ($designCapacityMwh) { $result.designCapacityMah = [int](($designCapacityMwh * 1000.0) / $voltageMv) }
-        if ($fullChargeCapacityMwh) { $result.fullChargeCapacityMah = [int](($fullChargeCapacityMwh * 1000.0) / $voltageMv) }
+    # mWh (cross-validated in PROJECT.md §1: 35701 mWh, 51310 mWh), so convert
+    # to mAh (mAh = mWh * 1000 / V) so both platforms use one unit. Use the
+    # battery's nominal DesignVoltage: the live voltage swings with charge
+    # level and would make the absolute mAh drift between snapshots. Fall back
+    # to live voltage only if DesignVoltage isn't reported.
+    $designVoltageMv = Try-Value { [int]$battery.DesignVoltage }
+    $conversionVoltageMv = if ($designVoltageMv -and $designVoltageMv -gt 0) { $designVoltageMv } else { $voltageMv }
+    if ($conversionVoltageMv -and $conversionVoltageMv -gt 0) {
+        if ($designCapacityMwh) { $result.designCapacityMah = [int](($designCapacityMwh * 1000.0) / $conversionVoltageMv) }
+        if ($fullChargeCapacityMwh) { $result.fullChargeCapacityMah = [int](($fullChargeCapacityMwh * 1000.0) / $conversionVoltageMv) }
+        $result.raw.conversionVoltageMv = $conversionVoltageMv
     }
     $result.raw.designCapacityMwh = $designCapacityMwh
     $result.raw.fullChargeCapacityMwh = $fullChargeCapacityMwh
@@ -217,7 +221,7 @@ function Show-PairingWindow {
     $form.MaximizeBox = $false
 
     $label = New-Object System.Windows.Forms.Label
-    $label.Text = "Enter this code in the Device Health Copilot app:"
+    $label.Text = "Scan the QR (or enter this code) in the DeviceIQ app:"
     $label.AutoSize = $true
     $label.Location = New-Object System.Drawing.Point(20, 20)
     $form.Controls.Add($label)
@@ -231,9 +235,19 @@ function Show-PairingWindow {
 
     $copyButton = New-Object System.Windows.Forms.Button
     $copyButton.Text = "Copy to Clipboard"
+    $copyButton.Width = 130
     $copyButton.Location = New-Object System.Drawing.Point(20, 85)
     $copyButton.Add_Click({ [System.Windows.Forms.Clipboard]::SetText($pending.token) })
     $form.Controls.Add($copyButton)
+
+    # The pairing page draws the QR in the browser. The token sits after the
+    # # so it is never sent to the server; see backend/src/public/pair.html.
+    $qrButton = New-Object System.Windows.Forms.Button
+    $qrButton.Text = "Show QR code"
+    $qrButton.Width = 130
+    $qrButton.Location = New-Object System.Drawing.Point(160, 85)
+    $qrButton.Add_Click({ Start-Process "$BackendBaseUrl/pair#$($pending.token)" })
+    $form.Controls.Add($qrButton)
 
     $statusLabel = New-Object System.Windows.Forms.Label
     $statusLabel.Text = "Waiting for phone to enter this code…"
@@ -300,8 +314,29 @@ function Invoke-Sync {
         Send-Snapshot -Payload (Get-Telemetry) | Out-Null
         Update-TrayStatus "Status: synced at $(Get-Date -Format 't')"
     } catch {
-        Update-TrayStatus "Sync error: $($_.Exception.Message)"
-        Write-Log "Sync error: $($_.Exception.Message)"
+        $err = $_
+        $status = Try-Value { [int]$err.Exception.Response.StatusCode }
+        $detail = "$($err.ErrorDetails.Message) $($err.Exception.Message)"
+        # 403/404 from our backend: device unlinked. A 400 from Firebase's
+        # token refresh naming a missing/disabled user or dead refresh token:
+        # the account was deleted.
+        $unlinked = $status -eq 403 -or $status -eq 404 -or
+            ($status -eq 400 -and $detail -match 'USER_NOT_FOUND|USER_DISABLED|TOKEN_EXPIRED|INVALID_REFRESH_TOKEN')
+        if ($unlinked) {
+            # Drop the saved credentials and offer re-pairing instead of
+            # failing every sync from now on.
+            Clear-Credentials
+            $Script:DeviceId = $null
+            $Script:RefreshToken = $null
+            $Script:IdToken = $null
+            $pairItem.Text = "Link This Device..."
+            $syncItem.Enabled = $false
+            Update-TrayStatus "Status: unlinked - link this device again"
+            Write-Log "Device unlinked by the backend ($status); credentials cleared"
+        } else {
+            Update-TrayStatus "Sync error: $($err.Exception.Message)"
+            Write-Log "Sync error: $($err.Exception.Message)"
+        }
     }
 }
 
