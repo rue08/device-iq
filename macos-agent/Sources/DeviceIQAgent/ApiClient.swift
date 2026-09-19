@@ -1,9 +1,6 @@
 import Foundation
 
-// Talks to backend/src/routes/{devices,pairing}.js. Unlike the Flutter app
-// there's no 10.0.2.2 emulator alias to worry about - this runs directly on
-// the host, so plain http://localhost:4000 reaches the backend started with
-// `npm start` in backend/.
+// Talks to backend/src/routes/{devices,pairing}.js at Config.backendBaseURL.
 enum ApiError: Error {
     case requestFailed(Int, String)
 }

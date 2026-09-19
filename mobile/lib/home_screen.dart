@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'auth_service.dart';
+import 'link_laptop_screen.dart';
 import 'telemetry_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -144,6 +145,14 @@ class _HomeScreenState extends State<HomeScreen> {
             FilledButton(
               onPressed: (_busy || _deviceId == null) ? null : _takeSnapshot,
               child: const Text('Take snapshot now'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Link a laptop'),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LinkLaptopScreen()),
+              ),
             ),
           ],
         ),

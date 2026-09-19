@@ -4,12 +4,9 @@ import 'package:http/http.dart' as http;
 
 import 'auth_service.dart';
 
-// 10.0.2.2 is the Android emulator's alias for the host machine's
-// localhost, where `backend/` runs during development (see PROJECT.md
-// Phase 6 for the eventual deployed URL this should switch to).
-// Testing on a real device over USB: run `adb reverse tcp:4000 tcp:4000`
-// and change this to http://127.0.0.1:4000 instead.
-const String _baseUrl = 'http://10.0.2.2:4000';
+// Deployed backend (EC2 + RDS behind nginx/certbot). For the Android
+// emulator against a local backend, use http://10.0.2.2:4000 instead.
+const String _baseUrl = 'https://deviceiq.duckdns.org';
 
 class ApiException implements Exception {
   ApiException(this.statusCode, this.message);
@@ -63,6 +60,31 @@ class ApiClient {
       Uri.parse('$_baseUrl/devices'),
       headers: await _authHeaders(),
       body: jsonEncode({
+        'deviceType': deviceType,
+        'platform': platform,
+        if (manufacturer != null) 'manufacturer': manufacturer,
+        if (model != null) 'model': model,
+        if (label != null) 'label': label,
+      }),
+    );
+    return _decodeOrThrow(response) as Map<String, dynamic>;
+  }
+
+  // Claims a laptop agent's pairing QR token, creating the laptop's Device
+  // row under this account. See backend/src/routes/pairing.js.
+  Future<Map<String, dynamic>> claimPairing({
+    required String token,
+    required String deviceType,
+    required String platform,
+    String? manufacturer,
+    String? model,
+    String? label,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/devices/claim'),
+      headers: await _authHeaders(),
+      body: jsonEncode({
+        'token': token,
         'deviceType': deviceType,
         'platform': platform,
         if (manufacturer != null) 'manufacturer': manufacturer,

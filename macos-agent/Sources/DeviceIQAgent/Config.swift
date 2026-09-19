@@ -5,8 +5,9 @@ import Foundation
 // not a service-account secret; the backend's admin key never leaves the
 // server).
 enum Config {
-    // Local dev backend. Point this at the deployed URL once Phase 6 lands.
-    static let backendBaseURL = URL(string: "http://localhost:4000")!
+    // Deployed backend (EC2 + RDS behind nginx/certbot). For local dev, use
+    // http://localhost:4000 with the backend started via `npm start`.
+    static let backendBaseURL = URL(string: "https://deviceiq.duckdns.org")!
 
     static let firebaseWebApiKey = "AIzaSyCCoLdGsaHcJ5ZFaojjVQ2DtpiFtsRT-m8"
 
