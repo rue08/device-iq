@@ -2,6 +2,7 @@ const express = require("express");
 const { prisma } = require("../lib/prisma");
 const { requireAuth, requireDeviceOwnership } = require("../lib/authMiddleware");
 const { validateBody } = require("../lib/validate");
+const { computeScore } = require("../lib/scoring");
 const { createDeviceSchema, createSnapshotSchema, updateDeviceSchema } = require("../lib/schemas");
 
 const router = express.Router();
@@ -178,6 +179,62 @@ router.get("/:deviceId/snapshots/latest", requireAuth, requireDeviceOwnership, a
     return res.status(404).json({ error: "no snapshots yet for this device" });
   }
   res.json(snapshot);
+});
+
+const SCORE_WINDOW_DAYS = 30;
+const SCORE_MAX_SNAPSHOTS = 1000;
+
+/**
+ * @openapi
+ * /devices/{deviceId}/score:
+ *   get:
+ *     tags: [Snapshots]
+ *     summary: Get health score
+ *     description: Deterministic 0-100 health score with a per-component breakdown, computed on request from the device's snapshots of the last 30 days (nothing is stored). Laptops and phones use different weights, because only laptops report real battery capacity. The charging habits component needs at least 10 snapshots spanning 24 hours; before that it is a neutral placeholder of 70, not a measurement - its `status` is `placeholder`, `includesPlaceholder` is `true` and `notices` explains it in plain words. A component the device cannot report at all (for example thermal on Windows) has `status` `unavailable` and is left out of the total.
+ *     parameters:
+ *       - in: path
+ *         name: deviceId
+ *         required: true
+ *         schema: { type: string }
+ *         example: cmfx0a1b20000qzrm5g8h1a2b
+ *     responses:
+ *       200:
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Score' }
+ *             example:
+ *               deviceId: cmfx0a1b20000qzrm5g8h1a2b
+ *               profile: laptop
+ *               total: 74
+ *               includesPlaceholder: true
+ *               components:
+ *                 - { key: battery, name: Battery, weight: 35, score: 83, status: measured, note: "86% of design capacity, 396 charge cycles" }
+ *                 - { key: habits, name: Charging habits, weight: 20, score: 70, status: placeholder, note: "Not enough history yet: 1 snapshot over 0.0 hours (needs at least 10 over 24 hours). A neutral 70 is shown as a placeholder. It is not measured from your usage." }
+ *               notices: ["Not enough history yet: 1 snapshot over 0.0 hours (needs at least 10 over 24 hours). A neutral 70 is shown as a placeholder. It is not measured from your usage."]
+ *               basedOn: { snapshotCount: 1, firstSnapshotAt: "2026-09-20T11:11:57.615Z", latestSnapshotAt: "2026-09-20T11:11:57.615Z" }
+ *               computedAt: "2026-09-20T11:11:58.000Z"
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/DeviceForbidden' }
+ *       404:
+ *         description: Device not found, or it has no snapshots yet
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       500: { $ref: '#/components/responses/InternalError' }
+ */
+// Health score, computed on request from recent snapshots - see lib/scoring.js.
+router.get("/:deviceId/score", requireAuth, requireDeviceOwnership, async (req, res) => {
+  const since = new Date(Date.now() - SCORE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const recent = await prisma.snapshot.findMany({
+    where: { deviceId: req.device.id, capturedAt: { gte: since } },
+    orderBy: { capturedAt: "desc" },
+    take: SCORE_MAX_SNAPSHOTS,
+  });
+  if (!recent.length) {
+    return res.status(404).json({ error: "no recent snapshots yet for this device" });
+  }
+  res.json(computeScore(req.device, recent.reverse()));
 });
 
 /**

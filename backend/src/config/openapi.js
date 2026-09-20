@@ -274,6 +274,52 @@ const spec = swaggerJsdoc({
             },
           ],
         },
+        Score: {
+          type: "object",
+          description:
+            "Health score for one device, computed on request. `total` is the weighted average of the components that are not `unavailable`.",
+          properties: {
+            deviceId: { type: "string" },
+            profile: { type: "string", enum: ["laptop", "phone"], description: "Which weight profile was used" },
+            total: { type: "integer", minimum: 0, maximum: 100, nullable: true, example: 82 },
+            includesPlaceholder: {
+              type: "boolean",
+              description: "True when the neutral habits placeholder (70) is part of the total because there is not enough history yet",
+            },
+            components: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  key: { type: "string", enum: ["battery", "storage", "memory", "thermal", "habits"] },
+                  name: { type: "string", example: "Charging habits" },
+                  weight: { type: "integer", example: 20 },
+                  score: { type: "integer", nullable: true, description: "Null when `status` is `unavailable`" },
+                  status: {
+                    type: "string",
+                    enum: ["measured", "placeholder", "unavailable"],
+                    description: "`placeholder` = a neutral 70 stands in for a measurement that is not possible yet",
+                  },
+                  note: { type: "string", description: "Plain-English explanation of this score" },
+                },
+              },
+            },
+            notices: {
+              type: "array",
+              items: { type: "string" },
+              description: "Caveats to show the user, e.g. why the habits score is a placeholder",
+            },
+            basedOn: {
+              type: "object",
+              properties: {
+                snapshotCount: { type: "integer" },
+                firstSnapshotAt: { type: "string", format: "date-time" },
+                latestSnapshotAt: { type: "string", format: "date-time" },
+              },
+            },
+            computedAt: { type: "string", format: "date-time" },
+          },
+        },
         Error: {
           type: "object",
           properties: {
