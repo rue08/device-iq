@@ -37,6 +37,7 @@ router.delete("/", requireAuth, async (req, res) => {
 
   await prisma.$transaction([
     prisma.snapshot.deleteMany({ where: { device: { userId: uid } } }),
+    prisma.deviceSummary.deleteMany({ where: { device: { userId: uid } } }),
     prisma.device.deleteMany({ where: { userId: uid } }),
     prisma.pendingPairing.deleteMany({ where: { userId: uid } }),
     prisma.user.deleteMany({ where: { id: uid } }),

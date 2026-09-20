@@ -48,8 +48,25 @@ model Device {
   createdAt    DateTime   @default(now())
 
   snapshots Snapshot[]
+  summary   DeviceSummary?
 
   @@index([userId])
+}
+
+// Cached AI summary for a device: one row per device, overwritten on each
+// regeneration. Reused for an hour, or until no newer snapshot exists - see
+// the /devices/:id/summary route.
+model DeviceSummary {
+  deviceId          String   @id
+  device            Device   @relation(fields: [deviceId], references: [id])
+  text              String
+  // the score total the text was written for
+  score             Int?
+  // capturedAt of the newest snapshot the summary was based on
+  basedOnSnapshotAt DateTime
+  // Bedrock inference profile / model id that wrote it
+  modelId           String
+  generatedAt       DateTime @default(now())
 }
 
 // One telemetry reading from a device. Fields are deliberately nullable and

@@ -2,7 +2,8 @@ const express = require("express");
 const { prisma } = require("../lib/prisma");
 const { requireAuth, requireDeviceOwnership } = require("../lib/authMiddleware");
 const { validateBody } = require("../lib/validate");
-const { computeScore } = require("../lib/scoring");
+const { computeScore, computeTrend } = require("../lib/scoring");
+const { generateSummary } = require("../lib/summary");
 const { createDeviceSchema, createSnapshotSchema, updateDeviceSchema } = require("../lib/schemas");
 
 const router = express.Router();
@@ -223,18 +224,128 @@ const SCORE_MAX_SNAPSHOTS = 1000;
  *             schema: { $ref: '#/components/schemas/Error' }
  *       500: { $ref: '#/components/responses/InternalError' }
  */
-// Health score, computed on request from recent snapshots - see lib/scoring.js.
-router.get("/:deviceId/score", requireAuth, requireDeviceOwnership, async (req, res) => {
+// Snapshots of the scoring window, oldest -> newest (empty if none).
+async function loadRecentSnapshots(deviceId) {
   const since = new Date(Date.now() - SCORE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
   const recent = await prisma.snapshot.findMany({
-    where: { deviceId: req.device.id, capturedAt: { gte: since } },
+    where: { deviceId, capturedAt: { gte: since } },
     orderBy: { capturedAt: "desc" },
     take: SCORE_MAX_SNAPSHOTS,
   });
-  if (!recent.length) {
+  return recent.reverse();
+}
+
+// Health score, computed on request from recent snapshots - see lib/scoring.js.
+router.get("/:deviceId/score", requireAuth, requireDeviceOwnership, async (req, res) => {
+  const snapshots = await loadRecentSnapshots(req.device.id);
+  if (!snapshots.length) {
     return res.status(404).json({ error: "no recent snapshots yet for this device" });
   }
-  res.json(computeScore(req.device, recent.reverse()));
+  res.json(computeScore(req.device, snapshots));
+});
+
+/**
+ * @openapi
+ * /devices/{deviceId}/summary:
+ *   get:
+ *     tags: [Snapshots]
+ *     summary: Get AI health summary
+ *     description: A short plain-English explanation of the device's health score, written by Claude Haiku 4.5 on Amazon Bedrock from the score breakdown and history statistics (never raw readings, ids or emails). The text is cached per device and reused for an hour; after that a new one is generated only if a newer snapshot exists. `?refresh=true` forces a new one. Account tokens only. If Bedrock fails and an older summary exists, that one is returned with `stale` set to `true`; otherwise the route answers 502 and the score endpoint still works.
+ *     parameters:
+ *       - in: path
+ *         name: deviceId
+ *         required: true
+ *         schema: { type: string }
+ *         example: cmfx0a1b20000qzrm5g8h1a2b
+ *       - in: query
+ *         name: refresh
+ *         required: false
+ *         schema: { type: boolean }
+ *         description: Skip the cache and generate a new summary now
+ *     responses:
+ *       200:
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Summary' }
+ *             example:
+ *               text: "Your MacBook scores 74 out of 100. The battery holds 86% of its original capacity after 396 cycles, which is the main thing pulling the score down. Charging habits are not measured yet, so a neutral value is used for them. Suggestion: keep the charge between 20% and 80% when you can."
+ *               score: 74
+ *               basedOnSnapshotAt: "2026-09-20T11:11:57.615Z"
+ *               generatedAt: "2026-09-20T11:12:03.000Z"
+ *               modelId: global.anthropic.claude-haiku-4-5-20251001-v1:0
+ *               cached: false
+ *               stale: false
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403:
+ *         description: Not your device, token scoped to another device, or a device-scoped token was used at all
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             examples:
+ *               notYours: { summary: Belongs to another account, value: { error: not your device } }
+ *               deviceToken: { summary: Device-scoped token, value: { error: device tokens cannot request summaries } }
+ *       404:
+ *         description: Device not found, or it has no recent snapshots yet
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       500: { $ref: '#/components/responses/InternalError' }
+ *       502:
+ *         description: The model call failed and there is no earlier summary to fall back on
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *             example: { error: summary unavailable }
+ */
+const SUMMARY_REUSE_MS = 60 * 60 * 1000;
+
+// Account tokens only: each new summary costs a model call, so a laptop's
+// device-scoped token must not be able to trigger them.
+router.get("/:deviceId/summary", requireAuth, requireDeviceOwnership, async (req, res) => {
+  if (req.auth.deviceId) {
+    return res.status(403).json({ error: "device tokens cannot request summaries" });
+  }
+  const snapshots = await loadRecentSnapshots(req.device.id);
+  if (!snapshots.length) {
+    return res.status(404).json({ error: "no recent snapshots yet for this device" });
+  }
+  const latest = snapshots[snapshots.length - 1];
+  const refresh = req.query.refresh === "true";
+
+  const cached = await prisma.deviceSummary.findUnique({ where: { deviceId: req.device.id } });
+  const present = (row, extra) => ({
+    text: row.text,
+    score: row.score,
+    basedOnSnapshotAt: row.basedOnSnapshotAt,
+    generatedAt: row.generatedAt,
+    modelId: row.modelId,
+    cached: true,
+    stale: false,
+    ...extra,
+  });
+
+  // Reuse for an hour; after that only regenerate if there is newer data.
+  if (cached && !refresh) {
+    const fresh = Date.now() - cached.generatedAt.getTime() < SUMMARY_REUSE_MS;
+    const noNewData = cached.basedOnSnapshotAt >= latest.capturedAt;
+    if (fresh || noNewData) return res.json(present(cached));
+  }
+
+  try {
+    const score = computeScore(req.device, snapshots);
+    const { text, modelId } = await generateSummary(req.device, score, computeTrend(score.profile, snapshots));
+    const row = await prisma.deviceSummary.upsert({
+      where: { deviceId: req.device.id },
+      create: { deviceId: req.device.id, text, score: score.total, basedOnSnapshotAt: latest.capturedAt, modelId },
+      update: { text, score: score.total, basedOnSnapshotAt: latest.capturedAt, modelId, generatedAt: new Date() },
+    });
+    res.json(present(row, { cached: false }));
+  } catch (err) {
+    console.error("summary generation failed:", err.name, err.message);
+    if (cached) return res.json(present(cached, { stale: true }));
+    res.status(502).json({ error: "summary unavailable" });
+  }
 });
 
 /**
@@ -332,6 +443,7 @@ router.delete("/:deviceId", requireAuth, requireDeviceOwnership, async (req, res
   }
   await prisma.$transaction([
     prisma.snapshot.deleteMany({ where: { deviceId: req.device.id } }),
+    prisma.deviceSummary.deleteMany({ where: { deviceId: req.device.id } }),
     prisma.device.delete({ where: { id: req.device.id } }),
   ]);
   res.status(204).end();

@@ -104,11 +104,34 @@ function isHot(s) {
   return null; // this snapshot carries no heat signal
 }
 
+// Plain history statistics (oldest -> newest snapshots). Shared by the habits
+// score and by the AI summary, which is given trends, not raw readings.
+function computeTrend(profile, snapshots) {
+  const count = snapshots.length;
+  const spanHours = count > 1 ? (snapshots[count - 1].capturedAt - snapshots[0].capturedAt) / 36e5 : 0;
+
+  let hotChargingSharePct = null;
+  const withHeat = snapshots.filter((s) => isHot(s) !== null && s.isCharging != null);
+  if (withHeat.length >= MIN_HISTORY_SNAPSHOTS) {
+    const hotCharging = withHeat.filter((s) => s.isCharging && isHot(s)).length;
+    hotChargingSharePct = (hotCharging / withHeat.length) * 100;
+  }
+
+  let capacityDropPct = null;
+  const withCapacity = snapshots.filter((s) => capacityRatio(s) != null);
+  if (profile === "laptop" && withCapacity.length >= 4) {
+    const avg = (arr) => arr.reduce((a, s) => a + capacityRatio(s), 0) / arr.length;
+    capacityDropPct = Math.max(0, (avg(withCapacity.slice(0, 3)) - avg(withCapacity.slice(-3))) * 100);
+  }
+
+  return { snapshotCount: count, spanHours, hotChargingSharePct, capacityDropPct };
+}
+
 // `snapshots` is oldest -> newest.
 function scoreHabits(profile, snapshots) {
-  const count = snapshots.length;
-  const spanHours =
-    count > 1 ? (snapshots[count - 1].capturedAt - snapshots[0].capturedAt) / 36e5 : 0;
+  const trend = computeTrend(profile, snapshots);
+  const count = trend.snapshotCount;
+  const spanHours = trend.spanHours;
   const enough = count >= MIN_HISTORY_SNAPSHOTS && spanHours >= MIN_HISTORY_HOURS;
 
   const placeholder = (reason) => ({
@@ -128,20 +151,15 @@ function scoreHabits(profile, snapshots) {
   const signals = [];
   const notes = [];
 
-  const withHeat = snapshots.filter((s) => isHot(s) !== null && s.isCharging != null);
-  if (withHeat.length >= MIN_HISTORY_SNAPSHOTS) {
-    const hotCharging = withHeat.filter((s) => s.isCharging && isHot(s)).length;
-    const share = hotCharging / withHeat.length;
-    signals.push(clamp(100 - share * 200));
-    notes.push(`${round(share * 100)}% of readings were taken while charging and hot`);
+  if (trend.hotChargingSharePct != null) {
+    signals.push(clamp(100 - trend.hotChargingSharePct * 2));
+    notes.push(`${round(trend.hotChargingSharePct)}% of readings were taken while charging and hot`);
   }
-
-  const withCapacity = snapshots.filter((s) => capacityRatio(s) != null);
-  if (profile === "laptop" && withCapacity.length >= 4) {
-    const avg = (arr) => arr.reduce((a, s) => a + capacityRatio(s), 0) / arr.length;
-    const dropPct = Math.max(0, (avg(withCapacity.slice(0, 3)) - avg(withCapacity.slice(-3))) * 100);
-    signals.push(clamp(100 - dropPct * 20));
-    notes.push(`battery capacity drifted down ${dropPct.toFixed(1)} percentage points over ${round(spanHours)} hours`);
+  if (trend.capacityDropPct != null) {
+    signals.push(clamp(100 - trend.capacityDropPct * 20));
+    notes.push(
+      `battery capacity drifted down ${trend.capacityDropPct.toFixed(1)} percentage points over ${round(spanHours)} hours`
+    );
   }
 
   if (!signals.length) {
@@ -229,4 +247,4 @@ function computeScore(device, snapshots) {
   };
 }
 
-module.exports = { computeScore, NEUTRAL_HABITS_SCORE, MIN_HISTORY_SNAPSHOTS, MIN_HISTORY_HOURS };
+module.exports = { computeScore, computeTrend, NEUTRAL_HABITS_SCORE, MIN_HISTORY_SNAPSHOTS, MIN_HISTORY_HOURS };
