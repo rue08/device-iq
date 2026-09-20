@@ -151,4 +151,16 @@ class ApiClient {
     if (response.statusCode == 404) return null;
     return _decodeOrThrow(response) as Map<String, dynamic>;
   }
+
+  // AI explanation of the score, cached by the backend (reused for an hour,
+  // see backend/src/routes/devices.js). `refresh` forces a new one. Returns
+  // null if the device has no recent snapshots yet.
+  Future<Map<String, dynamic>?> deviceSummary(String deviceId, {bool refresh = false}) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/devices/$deviceId/summary${refresh ? '?refresh=true' : ''}'),
+      headers: await _authHeaders(),
+    );
+    if (response.statusCode == 404) return null;
+    return _decodeOrThrow(response) as Map<String, dynamic>;
+  }
 }
