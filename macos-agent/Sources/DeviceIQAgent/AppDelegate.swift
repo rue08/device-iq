@@ -32,7 +32,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem.menu = menu
 
-        Task { await refreshMenuState() }
+        Task {
+            await refreshMenuState()
+            // The timer's first fire is a full interval away; sync once on launch.
+            await performSync()
+        }
         timer = Timer.scheduledTimer(withTimeInterval: Config.snapshotInterval, repeats: true) { [weak self] _ in
             self?.syncNow()
         }

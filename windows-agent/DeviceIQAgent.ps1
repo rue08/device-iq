@@ -363,6 +363,20 @@ $syncTimer.Interval = $SnapshotIntervalMs
 $syncTimer.Add_Tick({ Invoke-Sync })
 $syncTimer.Start()
 
+# The interval timer's first tick is a full interval away, so a restarted agent
+# would sit on "not synced yet" for 10 minutes. Sync once shortly after launch
+# (delayed so the message loop is running and the tray icon is already up).
+if ($Script:DeviceId) {
+    $startupTimer = New-Object System.Windows.Forms.Timer
+    $startupTimer.Interval = 2000
+    $startupTimer.Add_Tick({
+        $startupTimer.Stop()
+        $startupTimer.Dispose()
+        Invoke-Sync
+    })
+    $startupTimer.Start()
+}
+
 # Ctrl+C would stop this script's pipeline while the tray icon's message loop
 # keeps running, after which every menu click throws PipelineStoppedException.
 # Read it as plain input instead and quit from the tray menu's Exit. (Throws
