@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'auth_service.dart';
+import 'device_detail_screen.dart';
 import 'link_laptop_screen.dart';
 import 'telemetry_service.dart';
 import 'time_format.dart';
@@ -253,7 +254,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final details = [device['manufacturer'], device['model']].whereType<String>().join(' ');
 
     return Card(
-      child: Padding(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => DeviceDetailScreen(title: _deviceTitle(device), device: device),
+          ),
+        ),
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,6 +289,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             if (details.isNotEmpty) Text(details, style: Theme.of(context).textTheme.bodySmall),
+            Text('Tap for health score',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Theme.of(context).colorScheme.primary)),
             const SizedBox(height: 8),
             if (snapshot == null)
               const Text('No snapshot yet - it will appear after the first sync.')
@@ -299,6 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ],
         ),
+      ),
       ),
     );
   }

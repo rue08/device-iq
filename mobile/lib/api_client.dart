@@ -139,4 +139,16 @@ class ApiClient {
     if (response.statusCode == 404) return null;
     return _decodeOrThrow(response) as Map<String, dynamic>;
   }
+
+  // Health score and per-component breakdown, computed on request by the
+  // backend - see backend/src/lib/scoring.js. Returns null if the device has
+  // no recent snapshots yet (backend 404s in that case).
+  Future<Map<String, dynamic>?> deviceScore(String deviceId) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/devices/$deviceId/score'),
+      headers: await _authHeaders(),
+    );
+    if (response.statusCode == 404) return null;
+    return _decodeOrThrow(response) as Map<String, dynamic>;
+  }
 }
