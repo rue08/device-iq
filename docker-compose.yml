@@ -1,12 +1,33 @@
-# Runs on the EC2 instance. Postgres is RDS, not a container - see
-# DATABASE_URL in backend/.env on the server. nginx and certbot run on the
-# host, not in Compose (see nginx/device-iq.conf).
+# Runs on the OCI VM, alongside another project's own Compose stack. nginx
+# and certbot run on the host, not in Compose (see nginx/device-iq.conf).
 services:
+  postgres:
+    image: postgres:16-alpine
+    # Reads POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB from the same file
+    # the backend uses - one .env for the whole stack, not two.
+    env_file: ./.env
+    volumes:
+      - deviceiq_postgres_data:/var/lib/postgresql/data
+    # No published port - the backend reaches this over the Compose network
+    # by service name ("postgres"), and `docker compose exec postgres psql`
+    # covers manual access. Nothing listens on the host at all.
+    healthcheck:
+      # $$ (not $) so Compose passes a literal $POSTGRES_USER for the
+      # container's own shell to expand, instead of substituting here.
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   backend:
     build: ./backend
-    env_file: ./backend/.env
+    env_file: ./.env
     environment:
       PORT: 4000
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       # The Firebase key stays on the host, never baked into the image.
       - ./backend/firebase-service-account.json:/app/firebase-service-account.json:ro
@@ -14,3 +35,6 @@ services:
       # Loopback only: host nginx (TLS via certbot) is the sole way in.
       - "127.0.0.1:4000:4000"
     restart: unless-stopped
+
+volumes:
+  deviceiq_postgres_data:

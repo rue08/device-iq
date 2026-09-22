@@ -19,20 +19,22 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      EC2_HOST: ${{ secrets.EC2_HOST }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
     steps:
       - name: Configure SSH
         env:
-          SSH_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          # Same deploy key already trusted on this VM for the other
+          # project sharing it (railway-observatory) - reused deliberately.
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
       - name: Pull and rebuild on the server
         run: |
-          ssh -i ~/.ssh/id_deploy "ubuntu@$EC2_HOST" \
+          ssh -i ~/.ssh/id_deploy "ubuntu@$SSH_HOST" \
             'cd ~/device-iq && git pull --ff-only && docker compose up -d --build && docker image prune -f'
 
       # No tests exist, so this is the only check that a release actually
@@ -41,7 +43,7 @@ jobs:
       - name: Smoke test /health
         run: |
           for i in $(seq 1 30); do
-            if ssh -i ~/.ssh/id_deploy "ubuntu@$EC2_HOST" 'curl -fsS http://127.0.0.1:4000/health'; then exit 0; fi
+            if ssh -i ~/.ssh/id_deploy "ubuntu@$SSH_HOST" 'curl -fsS http://127.0.0.1:4000/health'; then exit 0; fi
             sleep 5
           done
           echo "health check failed after 150s" >&2
