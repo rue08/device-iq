@@ -8,12 +8,12 @@
     <key>ProgramArguments</key>
     <array>
         <!-- Replace with the actual path from `swift build -c release`'s
-             output (see README.md) before installing. -->
+             output before installing. -->
         <string>/REPLACE/WITH/PATH/TO/DeviceIQAgent</string>
     </array>
 
     <!-- Runs in the user's own session (LaunchAgent, not LaunchDaemon) - no
-         root/admin needed, per PROJECT.md Phase 1b. -->
+         root/admin needed. -->
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>

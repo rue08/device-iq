@@ -8,7 +8,7 @@ const { claimPairingSchema } = require("../lib/schemas");
 
 const router = express.Router();
 
-const PAIRING_TTL_MS = 10 * 60 * 1000; // 10 minutes, per PROJECT.md 2b
+const PAIRING_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 /**
  * @openapi
@@ -174,8 +174,8 @@ router.get("/pending-pairing/:token/status", async (req, res) => {
 // Called by the phone after scanning the laptop's QR - authenticated with
 // the phone's own Firebase ID token. Creates the Device row under the
 // phone's uid, then mints a device-scoped custom token for the laptop to
-// pick up (see PROJECT.md 2b for why createCustomToken happens here,
-// server-side, and never on the laptop itself).
+// pick up (createCustomToken happens here, server-side, and never on the
+// laptop itself).
 router.post("/claim", requireAuth, validateBody(claimPairingSchema), async (req, res) => {
   const { token, deviceType, platform, manufacturer, model, label } = req.body;
 

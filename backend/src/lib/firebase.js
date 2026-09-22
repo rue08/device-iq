@@ -8,7 +8,7 @@ const { getAuth } = require("firebase-admin/auth");
 // - GOOGLE_APPLICATION_CREDENTIALS: a path to the key file
 // Get the JSON file from: Firebase Console -> Project Settings ->
 // Service Accounts -> Generate new private key. Server-side only, never
-// ship this to the phone app or the laptop agent - see PROJECT.md 2b.
+// ship this to the phone app or the laptop agent.
 //
 // Deliberately NOT using admin.credential.applicationDefault() here - it
 // resolves credentials via Google's generic ADC search order, which can

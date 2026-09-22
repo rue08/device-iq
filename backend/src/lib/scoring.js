@@ -1,7 +1,7 @@
 // Deterministic 0-100 health score for a device, computed on request from its
-// stored snapshots (nothing is persisted). See PROJECT.md section 2 for the
-// reasoning behind the components; the weights differ per device type because
-// laptops report real battery capacity and phones only a coarse health enum.
+// stored snapshots (nothing is persisted). The weights differ per device
+// type because laptops report real battery capacity and phones only a
+// coarse health enum.
 
 const WEIGHTS = {
   laptop: { battery: 35, storage: 20, memory: 15, thermal: 10, habits: 20 },
@@ -18,7 +18,7 @@ const MIN_HISTORY_HOURS = 24;
 const HOT_PHONE_TENTHS_C = 400; // 40 C battery temperature
 const HOT_THERMAL_LEVELS = new Set(["FAIR", "SERIOUS", "MODERATE", "SEVERE", "CRITICAL", "EMERGENCY", "SHUTDOWN"]);
 
-// Android BatteryManager.EXTRA_HEALTH -> score (PROJECT.md section 2).
+// Android BatteryManager.EXTRA_HEALTH -> score.
 const HEALTH_ENUM_SCORE = { 2: 100, 7: 70, 3: 40, 5: 30, 6: 20, 4: 0 };
 const HEALTH_ENUM_NAME = { 2: "Good", 3: "Overheat", 4: "Dead", 5: "Over voltage", 6: "Failure", 7: "Cold" };
 const UNKNOWN_HEALTH_SCORE = 60;

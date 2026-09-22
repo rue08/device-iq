@@ -1,9 +1,8 @@
 <#
-DeviceIQ - Windows background agent (PROJECT.md Phase 1b).
-Tray-icon app: pairs with your account (text-code pairing, not QR - see
-windows-agent/README.md for why), then pushes a telemetry snapshot on a
-timer using the same WMI/powercfg reads validated in
-agents-windows-poc/telemetry-probe.ps1.
+DeviceIQ - Windows background agent.
+Tray-icon app: pairs with your account (text-code pairing, not QR), then
+pushes a telemetry snapshot on a timer using the same WMI/powercfg reads
+validated in agents-windows-poc/telemetry-probe.ps1.
 
 Run manually for testing:
     powershell.exe -ExecutionPolicy Bypass -File .\DeviceIQAgent.ps1
@@ -23,7 +22,7 @@ $BackendBaseUrl = "https://deviceiq.duckdns.org"
 # Public Firebase Web API Key - not a secret, see backend/.env.example.
 $FirebaseWebApiKey = "AIzaSyCCoLdGsaHcJ5ZFaojjVQ2DtpiFtsRT-m8"
 
-$SnapshotIntervalMs = 10 * 60 * 1000   # PROJECT.md Phase 1b: "every ~5-15 min"
+$SnapshotIntervalMs = 10 * 60 * 1000   # "every ~5-15 min, tunable"
 $PairingPollIntervalMs = 3000
 
 $CredentialsDir = Join-Path $env:LOCALAPPDATA "DeviceIQAgent"
@@ -134,8 +133,8 @@ function Get-Telemetry {
     $disk = Try-Value { Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'" }
 
     # Battery level + charging state: prefer the low-level BatteryStatus
-    # bool (validated as self-consistent in PROJECT.md §1), fall back to
-    # Win32_Battery's coarser enum.
+    # bool (validated as self-consistent), fall back to Win32_Battery's
+    # coarser enum.
     $result.batteryLevelPercent = Try-Value { [int]$battery.EstimatedChargeRemaining }
     if ($null -ne $bstatus -and $null -ne $bstatus.Charging) {
         $result.isCharging = [bool]$bstatus.Charging
@@ -148,13 +147,13 @@ function Get-Telemetry {
     if (-not $voltageMv) { $voltageMv = Try-Value { [int]$battery.DesignVoltage } }
     $result.voltageMv = $voltageMv
 
-    # Cycle count: root\wmi first (cross-validated exactly against powercfg
-    # in PROJECT.md §1), fall back to the powercfg XML report.
+    # Cycle count: root\wmi first (cross-validated exactly against
+    # powercfg), fall back to the powercfg XML report.
     $cycleCount = Try-Value { (Get-CimInstance -Namespace root\wmi -ClassName BatteryCycleCount).CycleCount }
 
     # Design/full-charge capacity: root\wmi BatteryStaticData is known to
     # fail outright on some OEMs (confirmed in the spike) - always have the
-    # powercfg XML fallback ready, per PROJECT.md §1's explicit conclusion.
+    # powercfg XML fallback ready.
     $designCapacityMwh = Try-Value { (Get-CimInstance -Namespace root\wmi -ClassName BatteryStaticData).DesignedCapacity }
     $fullChargeCapacityMwh = Try-Value { (Get-CimInstance -Namespace root\wmi -ClassName BatteryFullChargedCapacity).FullChargedCapacity }
 
@@ -180,8 +179,8 @@ function Get-Telemetry {
     $result.cycleCount = $cycleCount
 
     # Schema column is named *Mah, but powercfg/WMI report these natively in
-    # mWh (cross-validated in PROJECT.md §1: 35701 mWh, 51310 mWh), so convert
-    # to mAh (mAh = mWh * 1000 / V) so both platforms use one unit. Use the
+    # mWh (cross-validated: 35701 mWh, 51310 mWh), so convert to mAh
+    # (mAh = mWh * 1000 / V) so both platforms use one unit. Use the
     # battery's nominal DesignVoltage: the live voltage swings with charge
     # level and would make the absolute mAh drift between snapshots. Fall back
     # to live voltage only if DesignVoltage isn't reported.
@@ -205,13 +204,13 @@ function Get-Telemetry {
 
     # Thermal deliberately omitted - MSAcpi_ThermalZoneTemperature requires
     # admin and fails for a standard user (confirmed in the spike). No point
-    # prompting for elevation just for this one field, per PROJECT.md §1.
+    # prompting for elevation just for this one field.
     $result.thermalStatus = $null
 
     return $result
 }
 
-# --- Pairing window (text code + copy button, not QR - see README.md) ------
+# --- Pairing window (text code + copy button, not QR) ----------------------
 
 function Show-PairingWindow {
     $pending = New-PendingPairing

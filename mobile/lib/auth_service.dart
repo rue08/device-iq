@@ -1,9 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:google_sign_in/google_sign_in.dart';
 
-// Google Sign-In only, per PROJECT.md's tech stack decision - no
-// email/password. Requires the Android app's SHA-1 registered in the
-// Firebase console before this will actually complete on-device.
+// Google Sign-In only - no email/password. Requires the Android app's
+// SHA-1 registered in the Firebase console before this will actually
+// complete on-device.
 class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();

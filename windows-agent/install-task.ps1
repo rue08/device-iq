@@ -1,7 +1,7 @@
 <#
 Registers DeviceIQAgent.ps1 to run at logon under the current user, no
-admin/elevation required - matches the Phase 1b requirement in PROJECT.md
-that the core telemetry reads need no special permissions.
+admin/elevation required - the core telemetry reads need no special
+permissions.
 
 Run manually (not via the agent):
     powershell.exe -ExecutionPolicy Bypass -File .\install-task.ps1

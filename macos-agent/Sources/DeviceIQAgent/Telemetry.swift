@@ -2,10 +2,10 @@ import Foundation
 import IOKit
 import IOKit.ps
 
-// Ports the validated macOS spike (PROJECT.md §1) into real reads instead of
-// shelling out to ioreg/pmset/df/vm_stat - see PROJECT.md's own note that a
-// real app should use ProcessInfo.thermalState etc. instead of scraping CLI
-// text, since that output format isn't a stable contract across OS versions.
+// Ports the validated macOS spike into real reads instead of shelling out
+// to ioreg/pmset/df/vm_stat - a real app should use ProcessInfo.thermalState
+// etc. instead of scraping CLI text, since that output format isn't a
+// stable contract across OS versions.
 enum Telemetry {
     struct Snapshot {
         var batteryLevelPercent: Int?
@@ -61,8 +61,8 @@ enum Telemetry {
 
         // On Apple Silicon, the design/full-charge capacity fields live
         // nested under "BatteryData" (confirmed empirically via `ioreg` on
-        // the dev Mac - see PROJECT.md); older Intel Macs exposed them
-        // top-level. Check both, preferring top-level if present.
+        // the dev Mac); older Intel Macs exposed them top-level. Check
+        // both, preferring top-level if present.
         let batteryData = props["BatteryData"] as? [String: Any] ?? [:]
 
         snapshot.batteryLevelPercent = props["CurrentCapacity"] as? Int
@@ -71,9 +71,9 @@ enum Telemetry {
         snapshot.cycleCount = props["CycleCount"] as? Int
 
         // IOKit reports these natively in mAh - stored as-is, no unit
-        // conversion (see PROJECT.md §1/schema.prisma - Windows' powercfg/
-        // WMI equivalents are natively in mWh instead, a known cross-platform
-        // unit mismatch in this column, not converted either).
+        // conversion (see schema.prisma - Windows' powercfg/WMI equivalents
+        // are natively in mWh instead, a known cross-platform unit mismatch
+        // in this column, not converted either).
         snapshot.designCapacityMah = (props["DesignCapacity"] as? Int) ?? (batteryData["DesignCapacity"] as? Int)
         snapshot.fullChargeCapacityMah = (props["NominalChargeCapacity"] as? Int)
             ?? (props["FullChargeCapacity"] as? Int)
@@ -130,7 +130,7 @@ enum Telemetry {
         }
         guard result == KERN_SUCCESS else { return }
         // Matches `vm_stat`'s "Pages free" figure, the same call validated
-        // in the original spike - see PROJECT.md §1.
+        // in the original spike.
         snapshot.ramFreeBytes = Int64(stats.free_count) * Int64(pageSize)
     }
 }

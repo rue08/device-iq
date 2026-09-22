@@ -4,7 +4,7 @@ import Foundation
 // not a Firebase-onboarded app), so it talks to the Identity Toolkit REST
 // API directly to turn the custom token minted by backend's /devices/claim
 // (see backend/src/routes/pairing.js) into a real ID token, and to refresh
-// that ID token thereafter. See PROJECT.md §2b.
+// that ID token thereafter.
 enum AuthError: Error {
     case requestFailed(String)
 }

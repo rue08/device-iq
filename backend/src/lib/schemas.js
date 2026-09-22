@@ -17,7 +17,7 @@ const claimPairingSchema = createDeviceSchema.extend({
 
 // All fields optional/nullable: a single snapshot payload covers phone,
 // macOS, and Windows shapes, and each platform only populates the fields
-// it can actually read - see PROJECT.md 1 for what's trustworthy where.
+// it can actually read.
 const createSnapshotSchema = z.object({
   batteryLevelPercent: z.number().int().min(0).max(100).nullable().optional(),
   isCharging: z.boolean().nullable().optional(),

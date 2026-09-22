@@ -12,14 +12,14 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-// Ports the validated native probe logic (see PROJECT.md §1) into a
-// MethodChannel the Flutter side can call. Two documented gotchas baked in
-// here rather than left to the caller:
+// Ports the validated native probe logic into a MethodChannel the Flutter
+// side can call. Two documented gotchas baked in here rather than left to
+// the caller:
 //  - battery level/voltage/temperature/health come from the sticky
 //    ACTION_BATTERY_CHANGED broadcast, not BatteryManager.isCharging(),
 //    which the spike found reports false while visibly charging.
 //  - cycle count has no real, non-stubbed source on Android - deliberately
-//    not read here (see PROJECT.md §1 Android conclusion).
+//    not read here.
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.deviceiq.device_iq/telemetry"
 

@@ -1,8 +1,8 @@
 import AppKit
 
 // The first-run / re-pair window: shows a QR code for the phone to scan
-// (WhatsApp-linked-devices style, see PROJECT.md §2b) and polls the backend
-// until the phone claims it.
+// (WhatsApp-linked-devices style) and polls the backend until the phone
+// claims it.
 final class PairingWindowController: NSWindowController {
     private let statusLabel = NSTextField(labelWithString: "Generating pairing code…")
     private let imageView = NSImageView()

@@ -9,8 +9,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // No FirebaseOptions passed: on Android, firebase_core reads them from
   // android/app/google-services.json via the Google Services Gradle plugin
-  // (wired up in android/app/build.gradle.kts) - see mobile/README.md for
-  // the one-time setup step to generate that file.
+  // (wired up in android/app/build.gradle.kts).
   await Firebase.initializeApp();
   runApp(const DeviceIqApp());
 }

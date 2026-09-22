@@ -2,7 +2,7 @@ import AppKit
 import CoreImage
 
 // macOS ships a QR generator built into Core Image - no third-party
-// dependency needed, unlike the Windows side (see windows-agent/README.md).
+// dependency needed, unlike the Windows side.
 enum QRCodeGenerator {
     static func image(for string: String, pointSize: CGFloat = 220) -> NSImage? {
         guard let data = string.data(using: .utf8),

@@ -8,8 +8,8 @@ function extractBearerToken(req) {
 }
 
 // Verifies a Firebase ID token (from the phone's own sign-in, or from a
-// laptop agent's session obtained via signInWithCustomToken - see
-// PROJECT.md 2b). Attaches req.auth = { uid, deviceId } - deviceId is only
+// laptop agent's session obtained via signInWithCustomToken). Attaches
+// req.auth = { uid, deviceId } - deviceId is only
 // present on agent-issued tokens (minted with createCustomToken(uid,
 // {deviceId})), never on the phone's own direct sign-in token.
 async function requireAuth(req, res, next) {
@@ -46,8 +46,7 @@ async function requireAuth(req, res, next) {
   next();
 }
 
-// For routes that operate on a specific :deviceId - enforces both checks
-// discussed in PROJECT.md 2b:
+// For routes that operate on a specific :deviceId - enforces both checks:
 //  1. the device must actually belong to this token's uid (always)
 //  2. if this token is device-scoped (has a deviceId claim), it must match
 //     the :deviceId in the URL exactly - a laptop's token can't be reused

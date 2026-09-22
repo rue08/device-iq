@@ -1,8 +1,8 @@
 import 'package:flutter/services.dart';
 
 // Talks to the native probe in MainActivity.kt (ported from the validated
-// Kotlin spike - see PROJECT.md §1) to read battery/storage/RAM/thermal
-// values that Dart has no direct access to.
+// Kotlin spike) to read battery/storage/RAM/thermal values that Dart has
+// no direct access to.
 class TelemetryService {
   TelemetryService._();
   static final TelemetryService instance = TelemetryService._();
