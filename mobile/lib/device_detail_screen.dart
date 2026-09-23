@@ -50,16 +50,13 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     if (_score != null) _loadSummary();
   }
 
-  Future<void> _loadSummary({bool refresh = false}) async {
+  Future<void> _loadSummary() async {
     setState(() {
       _summaryLoading = true;
       _summaryError = null;
     });
     try {
-      final summary = await ApiClient.instance.deviceSummary(
-        widget.device['id'] as String,
-        refresh: refresh,
-      );
+      final summary = await ApiClient.instance.deviceSummary(widget.device['id'] as String);
       setState(() => _summary = summary);
     } catch (e) {
       setState(() => _summaryError = e.toString());
@@ -150,13 +147,6 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                 const Icon(Icons.auto_awesome, size: 18),
                 const SizedBox(width: 8),
                 Text('AI summary', style: theme.textTheme.titleSmall),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.refresh, size: 20),
-                  tooltip: 'Generate a new summary',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _summaryLoading ? null : () => _loadSummary(refresh: true),
-                ),
               ],
             ),
             if (_summaryLoading) ...[
@@ -176,6 +166,11 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
                 '${summary['stale'] == true ? '. Could not refresh, showing the previous summary' : ''}. '
                 'It can be wrong; the numbers below are the source of truth.',
                 style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Updates automatically next time you open this screen, at least an hour from now.',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
               ),
             ],
           ],

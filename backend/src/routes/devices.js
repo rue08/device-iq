@@ -250,18 +250,13 @@ router.get("/:deviceId/score", requireAuth, requireDeviceOwnership, async (req, 
  *   get:
  *     tags: [Snapshots]
  *     summary: Get AI health summary
- *     description: A short plain-English explanation of the device's health score, written by Claude Haiku 4.5 on Amazon Bedrock from the score breakdown and history statistics (never raw readings, ids or emails). The text is cached per device and reused for an hour; after that a new one is generated only if a newer snapshot exists. `?refresh=true` forces a new one. Account tokens only. If Bedrock fails and an older summary exists, that one is returned with `stale` set to `true`; otherwise the route answers 502 and the score endpoint still works.
+ *     description: A short plain-English explanation of the device's health score, written by Claude Haiku 4.5 on Amazon Bedrock from the score breakdown and history statistics (never raw readings, ids or emails). The text is cached per device and reused for an hour; after that a new one is generated only if a newer snapshot exists. Account tokens only. If Bedrock fails and an older summary exists, that one is returned with `stale` set to `true`; otherwise the route answers 502 and the score endpoint still works.
  *     parameters:
  *       - in: path
  *         name: deviceId
  *         required: true
  *         schema: { type: string }
  *         example: cmfx0a1b20000qzrm5g8h1a2b
- *       - in: query
- *         name: refresh
- *         required: false
- *         schema: { type: boolean }
- *         description: Skip the cache and generate a new summary now
  *     responses:
  *       200:
  *         description: OK
@@ -311,7 +306,6 @@ router.get("/:deviceId/summary", requireAuth, requireDeviceOwnership, async (req
     return res.status(404).json({ error: "no recent snapshots yet for this device" });
   }
   const latest = snapshots[snapshots.length - 1];
-  const refresh = req.query.refresh === "true";
 
   const cached = await prisma.deviceSummary.findUnique({ where: { deviceId: req.device.id } });
   const present = (row, extra) => ({
@@ -326,7 +320,7 @@ router.get("/:deviceId/summary", requireAuth, requireDeviceOwnership, async (req
   });
 
   // Reuse for an hour; after that only regenerate if there is newer data.
-  if (cached && !refresh) {
+  if (cached) {
     const fresh = Date.now() - cached.generatedAt.getTime() < SUMMARY_REUSE_MS;
     const noNewData = cached.basedOnSnapshotAt >= latest.capturedAt;
     if (fresh || noNewData) return res.json(present(cached));
