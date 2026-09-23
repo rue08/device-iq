@@ -64,7 +64,7 @@ model DeviceSummary {
   score             Int?
   // capturedAt of the newest snapshot the summary was based on
   basedOnSnapshotAt DateTime
-  // Bedrock inference profile / model id that wrote it
+  // Model id that wrote it
   modelId           String
   generatedAt       DateTime @default(now())
 }

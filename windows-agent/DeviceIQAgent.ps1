@@ -14,7 +14,7 @@ Add-Type -AssemblyName System.Drawing
 
 # --- Config ---------------------------------------------------------------
 
-# Deployed backend (EC2 + RDS behind nginx/certbot). For local dev against a
+# Deployed backend (OCI VM, Docker Compose behind nginx/certbot). For local dev against a
 # backend on another machine, use that machine's LAN IP, e.g.
 # "http://192.168.1.10:4000" - localhost here would mean this Windows machine.
 $BackendBaseUrl = "https://deviceiq.duckdns.org"

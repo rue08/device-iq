@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'auth_service.dart';
 
-// Deployed backend (EC2 + RDS behind nginx/certbot). For the Android
+// Deployed backend (OCI VM, Docker Compose behind nginx/certbot). For the Android
 // emulator against a local backend, use http://10.0.2.2:4000 instead.
 const String _baseUrl = 'https://deviceiq.duckdns.org';
 
