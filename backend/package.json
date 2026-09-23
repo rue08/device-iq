@@ -20,7 +20,7 @@
     "protobufjs@7.6.6": true
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.1136.0",
+    "@google/genai": "^2.24.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@scalar/express-api-reference": "^0.10.19",

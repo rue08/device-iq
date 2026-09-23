@@ -250,7 +250,7 @@ router.get("/:deviceId/score", requireAuth, requireDeviceOwnership, async (req, 
  *   get:
  *     tags: [Snapshots]
  *     summary: Get AI health summary
- *     description: A short plain-English explanation of the device's health score, written by Claude Haiku 4.5 on Amazon Bedrock from the score breakdown and history statistics (never raw readings, ids or emails). The text is cached per device and reused for an hour; after that a new one is generated only if a newer snapshot exists. Account tokens only. If Bedrock fails and an older summary exists, that one is returned with `stale` set to `true`; otherwise the route answers 502 and the score endpoint still works.
+ *     description: A short plain-English explanation of the device's health score, written by Gemini 3.5 Flash-Lite from the score breakdown and history statistics (never raw readings, ids or emails). The text is cached per device and reused for an hour; after that a new one is generated only if a newer snapshot exists. Account tokens only. If the model call fails and an older summary exists, that one is returned with `stale` set to `true`; otherwise the route answers 502 and the score endpoint still works.
  *     parameters:
  *       - in: path
  *         name: deviceId
@@ -268,7 +268,7 @@ router.get("/:deviceId/score", requireAuth, requireDeviceOwnership, async (req, 
  *               score: 74
  *               basedOnSnapshotAt: "2026-09-20T11:11:57.615Z"
  *               generatedAt: "2026-09-20T11:12:03.000Z"
- *               modelId: global.anthropic.claude-haiku-4-5-20251001-v1:0
+ *               modelId: gemini-3.5-flash-lite
  *               cached: false
  *               stale: false
  *       401: { $ref: '#/components/responses/Unauthorized' }

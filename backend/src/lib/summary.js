@@ -1,4 +1,4 @@
-const { generateText, MODEL_ID } = require("./bedrock");
+const { generateText, MODEL_ID } = require("./gemini");
 
 const SYSTEM_PROMPT = `You write the short health summary shown to a user of DeviceIQ, an app that monitors the battery, storage, memory and heat of their phone and laptops.
 
