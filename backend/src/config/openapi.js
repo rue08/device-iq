@@ -328,7 +328,7 @@ const spec = swaggerJsdoc({
             score: { type: "integer", nullable: true, description: "The score total the text was written for" },
             basedOnSnapshotAt: { type: "string", format: "date-time", description: "capturedAt of the newest snapshot it was based on" },
             generatedAt: { type: "string", format: "date-time" },
-            modelId: { type: "string", example: "global.anthropic.claude-haiku-4-5-20251001-v1:0" },
+            modelId: { type: "string", example: "gemini-3.5-flash-lite" },
             cached: { type: "boolean", description: "False when this request generated it" },
             stale: { type: "boolean", description: "True when regenerating failed and an older summary is returned instead" },
           },

@@ -32,6 +32,8 @@ const PAIRING_TTL_MS = 10 * 60 * 1000; // 10 minutes
  *             example:
  *               token: 9f2c4e7a1b8d3f6052ac91e4d7b03c68f1a5e2d49b7c0a83
  *               expiresAt: '2026-09-19T10:42:00.000Z'
+ *       429:
+ *         description: Too many pairings started from one IP address (about 6 a minute). Sent by nginx, not by the app, so the body is not JSON
  *       500: { $ref: '#/components/responses/InternalError' }
  */
 // Called by the laptop agent, unauthenticated - it has no identity yet.
