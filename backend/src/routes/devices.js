@@ -294,6 +294,7 @@ router.get("/:deviceId/score", requireAuth, requireDeviceOwnership, async (req, 
  *             example: { error: summary unavailable }
  */
 const SUMMARY_REUSE_MS = 60 * 60 * 1000;
+const summariesInFlight = new Map(); // device id -> pending summary row
 
 // Account tokens only: each new summary costs a model call, so a laptop's
 // device-scoped token must not be able to trigger them.
@@ -327,13 +328,23 @@ router.get("/:deviceId/summary", requireAuth, requireDeviceOwnership, async (req
   }
 
   try {
-    const score = computeScore(req.device, snapshots);
-    const { text, modelId } = await generateSummary(req.device, score, computeTrend(score.profile, snapshots));
-    const row = await prisma.deviceSummary.upsert({
-      where: { deviceId: req.device.id },
-      create: { deviceId: req.device.id, text, score: score.total, basedOnSnapshotAt: latest.capturedAt, modelId },
-      update: { text, score: score.total, basedOnSnapshotAt: latest.capturedAt, modelId, generatedAt: new Date() },
-    });
+    // One model call per device at a time: a request that arrives while one is
+    // running (reopened screen, pull-to-refresh) waits for it instead of
+    // starting a second call.
+    let pending = summariesInFlight.get(req.device.id);
+    if (!pending) {
+      pending = (async () => {
+        const score = computeScore(req.device, snapshots);
+        const { text, modelId } = await generateSummary(req.device, score, computeTrend(score.profile, snapshots));
+        return prisma.deviceSummary.upsert({
+          where: { deviceId: req.device.id },
+          create: { deviceId: req.device.id, text, score: score.total, basedOnSnapshotAt: latest.capturedAt, modelId },
+          update: { text, score: score.total, basedOnSnapshotAt: latest.capturedAt, modelId, generatedAt: new Date() },
+        });
+      })().finally(() => summariesInFlight.delete(req.device.id));
+      summariesInFlight.set(req.device.id, pending);
+    }
+    const row = await pending;
     res.json(present(row, { cached: false }));
   } catch (err) {
     console.error("summary generation failed:", err.name, err.message);

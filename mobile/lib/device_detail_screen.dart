@@ -39,29 +39,37 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
     });
     try {
       final score = await ApiClient.instance.deviceScore(widget.device['id'] as String);
+      if (!mounted) return;
       setState(() => _score = score);
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
     // Started after the score is on screen, so the slower model call never
     // holds the score back.
-    if (_score != null) _loadSummary();
+    if (mounted && _score != null) _loadSummary();
   }
 
   Future<void> _loadSummary() async {
+    // A pull-down while a summary is already being generated must not start a
+    // second request.
+    if (_summaryLoading) return;
     setState(() {
       _summaryLoading = true;
       _summaryError = null;
     });
     try {
       final summary = await ApiClient.instance.deviceSummary(widget.device['id'] as String);
+      if (!mounted) return;
       setState(() => _summary = summary);
-    } catch (e) {
-      setState(() => _summaryError = e.toString());
+    } catch (_) {
+      // The raw exception (often nginx's HTML) is no use to the user.
+      if (!mounted) return;
+      setState(() => _summaryError = 'Summary unavailable right now. Pull down to try again.');
     } finally {
-      setState(() => _summaryLoading = false);
+      if (mounted) setState(() => _summaryLoading = false);
     }
   }
 
@@ -155,7 +163,7 @@ class _DeviceDetailScreenState extends State<DeviceDetailScreen> {
               Text('Generating summary...', style: theme.textTheme.bodySmall),
             ] else if (_summaryError != null)
               Text(
-                'Could not load the summary. The score above is unaffected. ($_summaryError)',
+                '$_summaryError The score above is unaffected.',
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
               )
             else if (summary != null) ...[
