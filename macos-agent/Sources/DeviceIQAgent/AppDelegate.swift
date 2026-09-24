@@ -4,7 +4,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var statusMenuItem: NSMenuItem!
     private var pairMenuItem: NSMenuItem!
-    private var syncMenuItem: NSMenuItem!
     private var pairingWindow: PairingWindowController?
     private var timer: Timer?
 
@@ -22,10 +21,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pairMenuItem = NSMenuItem(title: "Link This Device…", action: #selector(showPairingWindow), keyEquivalent: "")
         pairMenuItem.target = self
         menu.addItem(pairMenuItem)
-
-        syncMenuItem = NSMenuItem(title: "Sync Now", action: #selector(syncNow), keyEquivalent: "")
-        syncMenuItem.target = self
-        menu.addItem(syncMenuItem)
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -102,7 +97,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func refreshMenuState() async {
         let paired = await SessionManager.shared.isPaired
         pairMenuItem.title = paired ? "Re-link This Device…" : "Link This Device…"
-        syncMenuItem.isEnabled = paired
         if !paired {
             statusMenuItem.title = "Status: not paired"
         }

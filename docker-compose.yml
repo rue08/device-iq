@@ -1,5 +1,6 @@
 # Runs on the OCI VM, alongside another project's own Compose stack. nginx
-# and certbot run on the host, not in Compose (see device-iq.conf).
+# and certbot run on the host, not in Compose; the live config is
+# /etc/nginx/sites-available/device-iq on the VM.
 services:
   postgres:
     image: postgres:16-alpine

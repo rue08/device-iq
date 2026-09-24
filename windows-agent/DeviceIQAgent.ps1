@@ -299,8 +299,6 @@ $statusItem = $contextMenu.Items.Add($(if ($Script:DeviceId) { "Status: not sync
 $statusItem.Enabled = $false
 $contextMenu.Items.Add("-") | Out-Null
 $pairItem = $contextMenu.Items.Add($(if ($Script:DeviceId) { "Re-link This Device..." } else { "Link This Device..." }))
-$syncItem = $contextMenu.Items.Add("Sync Now")
-$syncItem.Enabled = [bool]$Script:DeviceId
 $contextMenu.Items.Add("-") | Out-Null
 $exitItem = $contextMenu.Items.Add("Exit")
 
@@ -333,7 +331,6 @@ function Invoke-Sync {
             $Script:RefreshToken = $null
             $Script:IdToken = $null
             $pairItem.Text = "Link This Device..."
-            $syncItem.Enabled = $false
             Update-TrayStatus "Status: unlinked - link this device again"
             Write-Log "Device unlinked by the backend ($status); credentials cleared"
         } else {
@@ -346,10 +343,8 @@ function Invoke-Sync {
 $pairItem.Add_Click({
     Show-PairingWindow
     $pairItem.Text = $(if ($Script:DeviceId) { "Re-link This Device..." } else { "Link This Device..." })
-    $syncItem.Enabled = [bool]$Script:DeviceId
     if ($Script:DeviceId) { Invoke-Sync }
 })
-$syncItem.Add_Click({ Invoke-Sync })
 $exitItem.Add_Click({
     $notifyIcon.Visible = $false
     [System.Windows.Forms.Application]::Exit()
