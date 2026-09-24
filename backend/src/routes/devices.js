@@ -5,6 +5,7 @@ const { validateBody } = require("../lib/validate");
 const { computeScore, computeTrend } = require("../lib/scoring");
 const { generateSummary } = require("../lib/summary");
 const { createDeviceSchema, createSnapshotSchema, updateDeviceSchema } = require("../lib/schemas");
+const { deviceLimitReached, DEVICE_LIMIT_MESSAGE } = require("../lib/deviceLimit");
 
 const router = express.Router();
 
@@ -34,12 +35,20 @@ const router = express.Router();
  *             schema: { $ref: '#/components/schemas/Device' }
  *       400: { $ref: '#/components/responses/ValidationError' }
  *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403:
+ *         description: The account already has the maximum of 10 devices
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
  *       500: { $ref: '#/components/responses/InternalError' }
  */
 // Self-registration - used by the phone app to register itself as a device
 // right after its own Firebase sign-in (Phase 1, step 2). Laptops don't use
 // this endpoint - they arrive via the pairing/claim flow instead.
 router.post("/", requireAuth, validateBody(createDeviceSchema), async (req, res) => {
+  if (await deviceLimitReached(req.auth.uid)) {
+    return res.status(403).json({ error: DEVICE_LIMIT_MESSAGE });
+  }
   const device = await prisma.device.create({
     data: { userId: req.auth.uid, ...req.body },
   });

@@ -16,6 +16,7 @@ const accountRouter = require("./routes/account");
 const adminRouter = require("./routes/admin");
 const healthRouter = require("./routes/health");
 const docsRouter = require("./routes/docs");
+const { startRetention } = require("./lib/retention");
 
 const app = express();
 app.use(cors());
@@ -45,4 +46,5 @@ app.use((err, req, res, next) => {
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
   console.log(`device-iq backend listening on :${port}`);
+  startRetention();
 });

@@ -5,6 +5,7 @@ const { auth } = require("../lib/firebase");
 const { requireAuth } = require("../lib/authMiddleware");
 const { validateBody } = require("../lib/validate");
 const { claimPairingSchema } = require("../lib/schemas");
+const { deviceLimitReached, DEVICE_LIMIT_MESSAGE } = require("../lib/deviceLimit");
 
 const router = express.Router();
 
@@ -157,6 +158,11 @@ router.get("/pending-pairing/:token/status", async (req, res) => {
  *             example: { deviceId: cmfx0a1b20000qzrm5g8h1a2b }
  *       400: { $ref: '#/components/responses/ValidationError' }
  *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403:
+ *         description: The account already has the maximum of 10 devices
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
  *       404:
  *         description: Unknown or expired pairing
  *         content:
@@ -185,6 +191,9 @@ router.post("/claim", requireAuth, validateBody(claimPairingSchema), async (req,
   }
   if (pairing.claimedAt) {
     return res.status(409).json({ error: "pairing already claimed" });
+  }
+  if (await deviceLimitReached(req.auth.uid)) {
+    return res.status(403).json({ error: DEVICE_LIMIT_MESSAGE });
   }
 
   const device = await prisma.device.create({
