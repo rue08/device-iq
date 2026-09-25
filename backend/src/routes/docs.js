@@ -12,7 +12,7 @@ router.get("/openapi.json", (req, res) => {
 
 // GET /docs - Scalar's API reference UI, reading the spec from the route
 // above rather than a static copy, so it can never drift from it.
-router.use(
+router.get(
   "/docs",
   apiReference({
     url: "/openapi.json",

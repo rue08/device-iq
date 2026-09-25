@@ -36,6 +36,11 @@ app.use("/devices", pairingRouter);
 app.use("/account", accountRouter);
 app.use("/admin", adminRouter);
 
+// Unmatched URL or method - JSON 404 instead of Express's default HTML page.
+app.use((req, res) => {
+  res.status(404).json({ error: "not found" });
+});
+
 // Catch-all error handler - so a thrown/rejected error in any route
 // returns JSON instead of Express's default HTML error page.
 app.use((err, req, res, next) => {
